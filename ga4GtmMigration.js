@@ -281,3 +281,96 @@ function avGetIds(sheet, range, type) {
   });
   return id;
 }
+
+// Functions related to custom definitions.
+
+/**
+ * Writes custom definitions to a sheet.
+ * @param {!Object} sheet The sheet the information will be written to.
+ * @param {!Object} range The sheet range for the data to be written.
+ * @param {!Array<!Array<string>>} A double array listing the custom definitions
+ * to be written to the sheet.
+ */
+function cdWriteToSheet(sheet, range, customDefinitions) {
+  contentRange.numRows = customDefinitions.length;
+  if (customDefinitions.length > 0) {
+    sheet
+        .getRange(range.row, range.column, range.numRows, range.numColumns)
+        .setValues(customDefinitions);
+  }
+}
+
+/**
+ * Lists the custom definitions in a given tag or variable.
+ * @param {!Object} entity A tag or variable object.
+ * @return {!Array<?Array<string>>} Either an emptry array or a double array of
+ * custom definitions in a given tag or variable.
+ */
+function cdList(entity) {
+  let definitions = [];
+  if (entity.parameter != undefined) {
+    entity.parameter.forEach(param => {
+      if (param.getKey() == 'dimension' || param.getKey() == 'metric') {
+        param.getList().forEach(entity => {
+          let tempArray = [];
+          entity.getMap().forEach(map => {
+            if (map.getKey() == 'index') {
+              tempArray[0] = entity.id;
+              tempArray[1] = map.getValue();
+            } else if (
+                map.getKey() == 'dimension' || map.getKey() == 'metric') {
+              tempArray[2] = map.getValue();
+              tempArray[3] = map.getKey();
+            }
+          });
+          definitions.push(tempArray);
+        });
+      }
+    });
+  }
+  return definitions;
+}
+
+/**
+ * Retrieves the listed custom definitions for a given entity from a sheet and
+ * formats the data so that it can be added to a GA4 tag object's set of
+ * parameters. The custom definitions are converted to user properties and
+ * parameters.
+ * @param {!Object} sheet The sheet the information will be fead from.
+ * @param {!Object} range The sheet range for the data to be read from.
+ * @return {!Object} The user 
+ */
+function cdGetFromSheet(sheet, range) {
+  const content =
+      sheet.getRange(range.row, range.column, range.numRows, range.numColumns)
+          .getValues();
+  let userProperties = [];
+  let parameters = [];
+  content.forEach(row => {
+    const fieldValue = row[2];
+    const fieldName = row[4];
+    const scope = row[5];
+		/*
+		* TODO(bkuehn): Add a condition to distinguish which custom definitions
+		* should be associated with which tags.
+		*/
+    if (scope == 'dimension') {
+      userProperties.push({
+        map: [
+          {value: fieldName, type: 'template', key: 'name'},
+          {value: fieldValue, type: 'template', key: 'value'}
+        ],
+        type: 'map'
+      });
+    } else if (scope == 'metric') {
+      parameters.push({
+        map: [
+          {value: fieldName, type: 'template', key: 'name'},
+          {value: fieldValue, type: 'template', key: 'value'}
+        ],
+        type: 'map'
+      });
+    }
+  });
+  return {userProperties: userProperties, parameters: parameters};
+}
