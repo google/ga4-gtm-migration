@@ -218,3 +218,66 @@ function filterUniversalAnalyticsTags(tags, analyticsTagType) {
   return filteredTags;
 }
 
+// Functions related to the UA settings variable and the GA4 measurement ID
+
+/**
+ * Finds all the UA settings variables in a container and writes them to a 
+ * specified range and sheet.
+ * @param {!Object} sheet The sheet the information will be written to.
+ * @param {!Object} range The sheet range for the data to be written.
+ */
+function avWriteToSheet(sheet, range) {
+  const variables = listVariables(); // List all variables in the container.
+  const analyticsVariables = avFilter(variables);
+  range.numRows = analyticsVariables.length;
+  // TODO(bkuehn): Add a notificaiton for when there are no UA variables
+  if (analyticsVariables.length > 0) {
+    sheet.getRange(range.row, range.column, range.numRows, range.numColumns)
+        .setValues(analyticsVariables);
+  }
+}
+
+/**
+ * Filters a list of variables to return only the UA settings variables in a
+ * container.
+ * @param {!Object} variables A list of all variables in a container.
+ * @return {!Array<?Object>} A list of UA settings variable objects.
+ */
+function avFilter(variables) {
+	let analyticsVariables = [];
+  variables.forEach(variable => {
+    if (variable.type == 'gas') {
+      const name = variable.name;
+      let trackingId = '';
+      variable.parameter.forEach(param => {
+        if (param.getKey() == 'trackingId') {
+          trackingId = param.getValue();
+        }
+      });
+      const variableId = variable.getVariableId();
+      analyticsVariables.push([name, trackingId, variableId]);
+    }
+  });
+  return analyticsVariables;
+}
+
+/**
+ * Gets either the UA variable ID or measurement ID from the sheet.
+ * @param {!Object} sheet
+ * @param {!Object} range
+ * @param {string} type The GA type of the ID being requested.
+ * @return {number|string}
+ */
+function avGetIds(sheet, range, type) {
+	const rows = sheet.getRange(range.row, range.column, range.numRows,
+		range.numColumns).getValues();
+	let id = null;
+  rows.forEach(row => {
+    if (row[4] && type == 'UA') {
+      id = row[2];
+    } else if (row[4] && type == 'GA4') {
+    	id = row[3];
+    }
+  });
+  return id;
+}
