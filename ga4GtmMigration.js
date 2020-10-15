@@ -218,6 +218,21 @@ function filterUniversalAnalyticsTags(tags, analyticsTagType) {
   return filteredTags;
 }
 
+/**
+ * Attempts to convert camel case field names to snake case.
+ * @param {!Array<?Object>} fields A list of all fields.
+ * @return {!Array<?Array<string>>} A list of all fields.
+ */
+function convertToSnakeCase(fields) {
+  fields.forEach(field => {
+    if (/{{/.test(field[1]) == false) {
+			const converteName = key.replace( /([A-Z])/g, " $1" );
+			field[1] = converteName.split(' ').join('_').toLowerCase();
+    }
+  });
+  return fields;
+}
+
 // Functions related to the UA settings variable and the GA4 measurement ID
 
 /**
@@ -373,4 +388,89 @@ function cdGetFromSheet(sheet, range) {
     }
   });
   return {userProperties: userProperties, parameters: parameters};
+}
+
+// Functions related to the 'fields to set' section of tags.
+
+/**
+ * Returns a nested array to of field name and value pairs.
+ * @param {!Object} entity A tag or variable object.
+ * @return {!Array<?Array<string>>} An array of arrays containing entity ID,
+ *     field name, and value strings.
+ */
+function fieldsList(entity) {
+  let fieldsToSet = [];
+  if (entity.parameter != undefined) {
+    entity.parameter.forEach(param => {
+      if (param.getKey() == 'fieldsToSet') {
+        param.getList().forEach(field => {
+          let tempArray = [];
+          field.getMap().forEach(map => {
+            if (map.getKey() == 'fieldName') {
+							tempArray[0] = entity.getName();
+              tempArray[1] = entity.variableId || entity.tagId;
+              tempArray[2] = map.getValue();
+            } else if (map.getKey() == 'value') {
+              tempArray[3] = map.getValue();
+            }
+          });
+          fieldsToSet.push(tempArray);
+        });
+      }
+    });
+  }
+  return fieldsToSet;
+}
+
+/**
+ * Retrieves the fields from the sheet and converts them to an array of
+ * objects, which can be added to a tag.
+ * @param {!Object} sheet Sheet where the fields to set exist.
+ * @param {!Object} range Sheet range where the fields to set exist.
+ * @return {!Array<?Object>} If there are fields to set, returns an array of
+ * fields to set key/value objects, otherwise returns an empty array.
+ */
+function fieldsGetFromSheet(sheet, range) {
+  const values =
+      sheet.getRange(range.row, range.column, range.numRows, range.numColumns)
+          .getValues();
+  if (values[0][0] != '') {
+    let filteredValues = shared.removeEmptyRows(values);
+    let fieldsToSet = [];
+    filteredValues.forEach(row => {
+      fieldsToSet.push({
+        map: [
+          {value: row[0], type: 'template', key: 'name'},
+          {value: row[1], type: 'template', key: 'value'}
+        ],
+        type: 'map'
+      });
+    });
+    return fieldsToSet;
+  } else {
+    return [];
+  }
+}
+
+/**
+ * Writes the fields names and values to the sheet.
+ * @param {!Object} sheet
+ * @param {!Array<?Array<string>>} fields The fields to be written to the sheet.
+ * @param {!Object<number>} clearRange The range of values to clear.
+ * @param {!Object<number>} contentRange The range of values that will be
+ * written to the sheet.
+ */
+function fieldsWriteToSheet(sheet, fields, clearRange, contentRange) {
+  const snakeCaseFieldNames = convertToSnakeCase(fields);
+  contentRange.numRows = snakeCaseFieldNames.length;
+  sheet
+      .getRange(
+          clearRange.row, clearRange.column, clearRange.numRows,
+          clearRange.numColumns)
+      .clearContent();
+  sheet
+      .getRange(
+          contentRange.row, contentRange.column, contentRange.numRows,
+          contentRange.numColumns)
+      .setValues(snakeCaseFieldNames);
 }
