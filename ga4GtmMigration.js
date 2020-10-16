@@ -691,3 +691,23 @@ function migratePageviewEventTags() {
     migratePageviewTag(tag.tag, tag.tagName, 'Event Tag');
   });
 }
+
+/**
+ * Builds the menu.
+ */
+function onOpen() {
+  const analyticsPageviewSubMenu = SpreadsheetApp.getUi()
+  .createMenu('Main Pageview Migration')
+  .addItem('List UA Settings Variables', 'pmWriteUAVariableToSheet')
+  .addItem('List UA Pageview Tags', 'pmWriteUAPageviewToSheet')
+  .addItem('List UA Fields', 'pmWriteFTSToSheet')
+  .addItem('List Custom Definitions', 'pmWriteCustomDefinitionsToSheet')
+  .addSeparator()
+  .addItem('Migrate Main Pageview Tag', 'migrateMainPageviewTag')
+  .addItem('Migrate Virtual Pageview Tags', 'migrateVirtualPageviewTags')
+
+  SpreadsheetApp.getUi()
+  .createMenu('GTM Migration')
+  .addSubMenu(analyticsPageviewSubMenu)
+  .addToUi();
+}
