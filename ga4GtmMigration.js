@@ -53,7 +53,8 @@ const measurementIdRange = {
 // Entity types as defined by the GTM API.
 // TODO(bkuehn): List all entity types that will be used for filtering..
 const entityTypes = {
-	aw: 'gaawc',
+	ga4Config: 'gaawc',
+	ga4Event: 'gaawe',
 	ua: 'ua'
 }
 
@@ -146,7 +147,7 @@ function getConfigTag(awMeasurementId) {
   const allTags = listTags();
   let configTag;
   allTags.forEach(tag => {
-    if (tag.type == entityTypes.aw) {
+    if (tag.type == entityTypes.ga4Config) {
       tag.parameter.forEach(param => {
         if (param.key == paramKeyValues.mid) {
           if (param.value == awMeasurementId) {
@@ -196,7 +197,7 @@ function removeEmptyRows(rows) {
  * @param {string} analyticsTagType
  * @return {?Array<?Object>}
  */
-function filterUniversalAnalyticsTags(tags, analyticsTagType) {
+function filterUATags(tags, analyticsTagType) {
   let filteredTags = [];
   tags.forEach(tag => {
     if (tag.type == entityTypes.ua) {
@@ -435,7 +436,11 @@ function fieldsGetFromSheet(sheet, range) {
       sheet.getRange(range.row, range.column, range.numRows, range.numColumns)
           .getValues();
   if (values[0][0] != '') {
-    let filteredValues = shared.removeEmptyRows(values);
+		/*
+		* TODO(bkuehn): Create a way to only retrieve fields associated with a 
+		* specific field.
+		*/
+    let filteredValues = removeEmptyRows(values);
     let fieldsToSet = [];
     filteredValues.forEach(row => {
       fieldsToSet.push({
@@ -473,4 +478,216 @@ function fieldsWriteToSheet(sheet, fields, clearRange, contentRange) {
           contentRange.row, contentRange.column, contentRange.numRows,
           contentRange.numColumns)
       .setValues(snakeCaseFieldNames);
+}
+
+// Pageview migration functions
+
+/**
+ * Writes the UA variables in a workspace to the pageview migration sheet.
+ */
+function pmWriteUAVariableToSheet() {
+  let uaVariableRange = {
+    row: 2,
+    column: pmStartColumn.analyticsVariable,
+    numRows: null,
+    numColumns: 3
+  };
+  avWriteToSheet(pageviewMigrationSheet, uaVariableRange);
+}
+
+/**
+ * Writes the fields in the selected UA variable and all UA pageview tags to the
+ * pageview migration sheet.
+ */
+function pmWriteFieldsToSheet() {
+  let fields = [];
+
+  const idRange = {
+    row: 2,
+    column: pmStartColumn.analyticsVariable,
+    numRows: avFilter(listVariables()).length,
+    numColumns: 5
+  };
+  const clearRange = {
+    row: 2,
+    column: pmStartColumn.fieldsToSet,
+    numRows: 50,
+    numColumns: 3
+  };
+  const contentRange = {
+    row: 2,
+    column: pmStartColumn.fieldsToSet,
+    numRows: null,
+    numColumns: 3
+  };
+
+  const analyticsVariable = 
+	getTag(avGetUAId(pageviewMigrationSheet), idRange);
+  fields = fields.concat(analyticsVariable);
+
+  const pageviewTags = filterUATags(listTags(), 'pageview');
+  pageviewTags.forEach(tag => {
+    fields = fields.concat(fieldsList(tag));
+  });
+
+  fieldsWriteToSheet(
+      pageviewMigrationSheet, fields, clearRange, contentRange);
+}
+
+/**
+ * Writes the custom definitions in the selected analytics settings variable and
+ * all pageviews to the pageview migration sheet.
+ */
+function pmWriteCustomDefinitionsToSheet() {
+  let customDefinitions = [];
+
+  const idRange = {
+    row: 2,
+    column: pmStartColumn.analyticsVariable,
+    numRows: avFilter(listVariables()).length,
+    numColumns: 5
+  };
+  const contentRange = {
+    row: 2,
+    column: pmStartColumn.customDefinitions,
+    numRows: null,
+    numColumns: 4
+  };
+
+  const analyticsVariableId =
+      avGetUAId(pageviewMigrationSheet, idRange);
+  const analyticsVariable = getVariable(analyticsVariableId);
+
+  customDefinitions = customDefinitions.concat(cdist(analyticsVariable));
+
+  const pageviewTags = filterUATags(listTags(), 'pageview');
+  pageviewTags.forEach(tag => {
+    customDefinitions = customDefinitions.concat(cdList(tag));
+  });
+
+  cdWriteToSheet(
+      pageviewMigrationSheet, contentRange, customDefinitions);
+}
+
+/**
+ * Writes the UA pageview tags to the pageview migration sheet.
+ */
+function pmWriteUAPageviewToShet() {
+  const tags = listTags();
+  const pageviewTags = filterUATags(tags, 'pageview');
+  if (pageviewTags.length) {
+    pageviewMigrationSheet
+        .getRange(2, pmStartColumn.tags, pageviewTags.length, 2)
+        .setValues(pageviewTags);
+  }
+}
+
+/**
+ * Returns an object contain a tag the tag name in the spreadsheet.
+ * @param {!Object} sheet Sheet where the pageview tag IDs and names exist.
+ * @param {!Object} range Sheet range for the pageview tags IDs and names.
+ * @param {string} type The kind of pageview that will be returned.
+ * @return {!Object}
+ */
+function getTagsFromSheet(sheet, range, type) {
+  const rows =
+      sheet.getRange(range.row, range.column, range.numRows, range.numColumns)
+          .getValues();
+  const tags = [];
+  rows.forEach(row => {
+    if (type == row[2] || type == 'all') {
+      tags.push({tag: getTag(row[1]), tagName: row[0]});
+    }
+  });
+  return tags;
+}
+
+/**
+ * Creates GA4 tags in the workspace based on existing universal analytics
+ * tags and spreadsheet settings.
+ * @param {!Object} tag The original tag to be migrated.
+ * @param {string} tagName The tag name from the spreadsheet.
+ * @param {string} tagType The kind of pageview tag being migrated.
+ */
+function migratePageviewTag(tag, tagName, tagType) {
+  const customDefinitionsRange = {
+    row: 2,
+    column: pmStartColumn.customDefinitions,
+    numRows: 400,
+    numColumns: 6
+  };
+  const fieldsToSetRange = {
+    row: 2,
+    column: pmStartColumn.fieldsToSet + 1,
+    numRows: 50,
+    numColumns: 2
+  };
+
+  const customDimensionSettings =
+      cdGetFromSheet(pageviewMigrationSheet, customDefinitionsRange);
+  const userProperties = customDimensionSettings.userProperties;
+
+  const fieldsToSetValues =
+      fieldsGetFromSheet(pageviewMigrationSheet, fieldsToSetRange);
+
+  let skeletonPageviewTag = getTagSkeleton(tag);
+  skeletonPageviewTag.parameter = [];
+  skeletonPageviewTag.parameter.push(
+      {key: 'userProperties', type: 'list', list: userProperties});
+
+
+  if (tagType == 'Config Tag') {
+    const measurementId = avGetGA4MeasurementId(
+        pageviewMigrationSheet, measurementIdRange);
+
+    skeletonPageviewTag.type = 'gaawc';
+    skeletonPageviewTag.name = tagName + ' - A+W - Config';
+    skeletonPageviewTag.parameter.push(
+        {key: 'fieldsToSet', type: 'list', list: fieldsToSetValues});
+    skeletonPageviewTag.parameter.push(
+        {key: 'measurementId', type: 'template', value: measurementId});
+
+  } else if (tagType == 'Event Tag') {
+    const configTag = getConfigTag(
+        pageviewMigrationSheet, measurementIdRange);
+    skeletonPageviewTag.type = entityTypes.ga4Event;
+    skeletonPageviewTag.name = tagName + ' - A+W - Virtual Pageview';
+    skeletonPageviewTag.parameter.push(
+        {key: 'eventName', type: 'template', value: 'page_view'});
+    skeletonPageviewTag.parameter.push(
+        {key: 'measurementId', type: 'tagReference', value: configTag.name});
+  }
+
+  const newPageviewTag =
+      Tagmanager_v2.Accounts.Containers.Workspaces.Tags.create(
+          skeletonPageviewTag, gtmPath);
+  logChange(
+      newPageviewTag.name, newPageviewTag.type, newPageviewTag.tagId, 'Created',
+      newPageviewTag.tagManagerUrl);
+}
+
+/**
+ * Kicks off the pageview tag migration for the config tag.
+ */
+function migrateConfigTag() {
+  const pageviewTagRange =
+      {row: 2, column: pmStartColumn.tags, numRows: 50, numColumns: 3};
+  const tags = getTagsFromSheet(
+      pageviewMigrationSheet, pageviewTagRange, 'Config Tag');
+  tags.forEach(tag => {
+    migratePageviewTag(tag.tag, tag.tagName, 'Config Tag');
+  });
+}
+
+/**
+ * Kicks off the migration of the pageview event tags.
+ */
+function migratePageviewEventTags() {
+  const pageviewTagRange =
+      {row: 2, column: pmStartColumn.tags, numRows: 50, numColumns: 3};
+  const tags = getTagsFromSheet(
+      pageviewMigrationSheet, pageviewTagRange, 'Event Tag');
+  tags.forEach(tag => {
+    migratePageviewTag(tag.tag, tag.tagName, 'Event Tag');
+  });
 }
