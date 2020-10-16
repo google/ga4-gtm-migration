@@ -692,6 +692,25 @@ function migratePageviewEventTags() {
   });
 }
 
+// Spreadsheet changelog functions.
+
+/**
+ * Adds a row to the changelog sheet to create a record of the modification that
+ * was made.
+ * @param {string} entityName The name of what was changed.
+ * @param {string} The type (trigger, tag, variable, etc.) that was changed.
+ * @param {number} The ID of the entity that was chagned
+ * @param {string} actionTaken A brief description of how something was changed.
+ * @param {string} gtmURL The URL for the entity that was changed.
+ */
+function logChange(entityName, entityType, entityId, actionTaken, gtmURL) {
+  const date = new Date();
+  const currentDateTime = date.getDate() + '-' + date.getMonth() + '-' + date.getFullYear();
+  const user = Session.getActiveUser().getEmail();
+  const loggedChange = [[currentDateTime, entityName, entityType, entityId, actionTaken, gtmURL, user]]
+  changelogSheet.getRange((changelogSheet.getLastRow() + 1), 1, 1, 7).setValues(loggedChange);
+}
+
 /**
  * Builds the menu.
  */
