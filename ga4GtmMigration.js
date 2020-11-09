@@ -49,6 +49,8 @@ const ss = SpreadsheetApp.getActive();
 const settingsSheet = ss.getSheetByName('GTM URL');
 const changelogSheet = ss.getSheetByName('Changelog');
 const pageviewMigrationSheet = ss.getSheetByName('Pageview Migration');
+const eventMigrationSheet = ss.getSheetByName('Event Migration');
+const validationSheet = ss.getSheetByName('Validation Settings');
 
 const gtmUrl = settingsSheet.getRange('B1').getValue();
 const gtmPath = gtmUrl.split('#/container/')[1];
@@ -97,10 +99,15 @@ const pmTagRange = {
 
 // Entity types as defined by the GTM API.
 // TODO(bkuehn): List all entity types that will be used for filtering..
-const entityTypes = {
+const analyticsVersion = {
 	ga4Config: 'gaawc',
 	ga4Event: 'gaawe',
 	ua: 'ua'
+}
+
+const uaTagType = {
+	pageview: 'TRACK_PAGEVIEW',
+	event: 'TRACK_EVENT'
 }
 
 // Parameter key values as defined by the GTM API.
@@ -199,7 +206,7 @@ function getConfigTag(awMeasurementId) {
   const allTags = listTags();
   let configTag;
   allTags.forEach(tag => {
-    if (tag.type == entityTypes.ga4Config) {
+    if (tag.type == analyticsVersion.ga4Config) {
       tag.parameter.forEach(param => {
         if (param.key == paramKeyValues.mid) {
           if (param.value == awMeasurementId) {
@@ -246,29 +253,47 @@ function removeEmptyRows(rows) {
 /**
  * Returns an array of universal analytics tags.
  * @param {!Array<?Object>} tags
- * @param {string} analyticsTagType
+ * @param {string} analyticsType GA4 config or event or UA
+ * @param {string} tagType Either TRACK_PAGEVIEW or TRACK_EVENT
  * @return {?Array<?Object>}
  */
-function filterUATags(tags, analyticsTagType) {
+function filterTags(tags, analyticsType, tagType) {
   let filteredTags = [];
   tags.forEach(tag => {
-    if (tag.type == entityTypes.ua) {
-      tag.parameter.forEach(param => {
-        if (param.key == paramKeyValues.trackType) {
-          if (analyticsTagType == 'pageview' &&
-              param.value == 'TRACK_PAGEVIEW') {
-            filteredTags.push([tag.getName(), tag.getTagId()]);
-            return;
-          } else if (
-              analyticsTagType == 'event' && param.value == 'TRACK_EVENT') {
-            filteredTags.push([tag.getName(), tag.getTagId()]);
-            return;
+    if (tag.type == analyticsType) {
+      if (analyticsType == analyticsVersion.ua) {
+        tag.parameter.forEach(param => {
+          if (param.key == paramKeyValues.trackType) {
+            if (param.value == tagType) {
+              filteredTags.push(tag);
+            } else if (param.value == tagType) {
+							filteredTags.push(tag);
+            }
           }
-        }
-      });
+        });
+      } else if (tag.type == analyticsVersion.ga4Config) {
+				filteredTags.push(tag);
+      }
     }
   });
   return filteredTags;
+}
+
+/**
+ * Extracts the tag name and ID and returns a double array of names and IDs.
+ * @param {!Array<!Object>} tags An array of tag objects.
+ * @return {!Array} An array of arrays with two values, a tag name and ID.
+ */
+function listTagNamesAndIds(tags) {
+	const tagNamesAndIds = [];
+	tags.forEach(tag => {
+    tagNamesAndIds.push([
+			'=hyperlink("' + tag.getTagManagerUrl() + 
+			'","' + tag.getName() + '")',
+			tag.getTagId()
+		]);
+	})
+  return tagNamesAndIds;
 }
 
 /**
@@ -644,7 +669,9 @@ function pmWriteFieldsToSheet() {
   );
   fields = fields.concat(fieldsList(analyticsVariable));
 
-  const pageviewTags = filterUATags(listTags(), 'pageview');
+  const pageviewTags = listTagNamesAndIds(
+		filterTags(listTags(), analyticsVersion.ua, uaTagType.pageview)
+	);
   pageviewTags.forEach(tag => {
     fields = fields.concat(fieldsList(tag));
   });
@@ -667,7 +694,9 @@ function pmWriteCustomDefinitionsToSheet() {
 	
 	customDefinitions = customDefinitions.concat(cdList(analyticsVariable));
 
-  const pageviewTags = filterUATags(listTags(), 'pageview');
+  const pageviewTags = filterTags(
+		listTags(), analyticsVersion.ua, uaTagType.pageview
+	);
   pageviewTags.forEach(tag => {
     customDefinitions = customDefinitions.concat(cdList(tag));
   });
@@ -681,7 +710,9 @@ function pmWriteCustomDefinitionsToSheet() {
  */
 function pmWriteUAPageviewToSheet() {
   const tags = listTags();
-  const pageviewTags = filterUATags(tags, 'pageview');
+  const pageviewTags = listTagNamesAndIds(
+		filterTags(tags, analyticsVersion.ua, uaTagType.pageview)
+	);
   if (pageviewTags.length) {
     pageviewMigrationSheet
         .getRange(pmTagRange.row, pmTagRange.column, pageviewTags.length, 2)
@@ -759,7 +790,7 @@ function migratePageviewTag(
       avGetIds(pageviewMigrationSheet, pmSettingsVariableRange, 'GA4')
     );
 		// Set the tag type to GA4's event type.
-    skeletonPageviewTag.type = entityTypes.ga4Event;
+    skeletonPageviewTag.type = analyticsVersion.ga4Event;
     skeletonPageviewTag.name = tag.tagName + ' - A+W - Virtual Pageview';
 		// Set the event name to page_view.
     skeletonPageviewTag.parameter.push({
@@ -890,4 +921,53 @@ function logChange(entityName, entityType, entityId, actionTaken, gtmURL) {
   changelogSheet.getRange(
 		(changelogSheet.getLastRow() + 1), 1, 1, 7
 	).setValues(loggedChange);
+}
+
+// Event config tag functions.
+
+const emTagsWriteRange = {
+	row: 2,
+	column: 1,
+	numRows: eventMigrationSheet.getLastRow(),
+	numColumns: 2
+}
+
+const emTagsReadRange = {
+	row: 2,
+	column: 1,
+	numRows: eventMigrationSheet.getLastRow(),
+	numColumns: 5
+}
+
+
+const emConfigTagRange = {
+	row: 2,
+	column: 5,
+	numRows: validationSheet.getLastRow(),
+	numColumns: 2
+}
+
+/**
+ * Writes config tag names and IDs to the validation sheet to create a drop-down
+ * menu for user to select from on the event migration sheet.
+ * @param {!Object} sheet The sheet to write the config tags to.
+ * @param {!Object} range The write range for the sheet.
+ */
+function emWriteTagsToSheet(sheet, range, gaVersion, uaType) {
+	const tags = listTagNamesAndIds(filterTags(listTags(), gaVersion, uaType));
+	sheet.getRange(
+		range.row, range.column, sheet.getLastRow(), range.numColumns
+	).clear();
+	sheet.getRange(
+		range.row, range.column, tags.length, range.numColumns
+	).setValues(tags);
+}
+
+/**
+ * Lists the config tag names and IDs in the validation settings sheet. 
+ */
+function emListConfigTags() {
+  emWriteTagsToSheet(
+		validationSheet, emConfigTagRange, analyticsVersion.ga4Config, ''
+	);
 }
