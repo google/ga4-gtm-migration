@@ -1041,3 +1041,89 @@ function emWriteCustomDefinitionsToSheet() {
       eventMigrationSheet, emCustomDefinitionsWriteRange, customDefinitions
 	);
 }
+
+/**
+ * Creates a new GA4 tag basd on the original UA event.
+ * @param {!Object} tag The tag to be migrated.
+ * @param {?Object} customDefinitionMappings The custom definitions from the 
+ * old tag to be added to the new tag.
+ */
+function migrateEventTag(tag, customDefinitionMappings) {
+  let skeletonEventTag = getTagSkeleton(tag.tag);
+  skeletonEventTag.parameter = [];
+	
+	// Set the tag type to GA4's event type.
+  skeletonEventTag.type = analyticsVersion.ga4Event;
+  skeletonEventTag.name = tag.tagName + ' - GA4';
+	
+	// Set the event name to page_view.
+  skeletonEventTag.parameter.push({
+		key: 'eventName', 
+		type: 'template', 
+		value: tag.tagName
+	});
+	// Set the config tag for the event.
+  skeletonEventTag.parameter.push({
+		key: 'measurementId',
+		type: 'tagReference',
+		value: tag.configTag
+	});
+		
+	// Set custom definitions associated with all event tags.
+	let parameters = [];
+	parameters = parameters.concat(
+		customDefinitionMappings.allEventTags.metric
+	);
+	let userProperties = [];
+	userProperties = userProperties.concat(
+		customDefinitionMappings.allEventTags.dimension
+	);
+	
+	// Set custom definitions from corresponding tag.
+	customDefinitionMappings.singleEventTags.forEach(entity => {
+		if (entity.entityId == tag.id) {
+			parameters = parameters.concat(entity.metric);
+			userProperties = userProperties.concat(entity.dimension);
+		}
+	});
+		
+	skeletonEventTag.parameter.push({
+		key: 'userProperties',
+		type: 'list',
+		list: userProperties
+	});
+	skeletonEventTag.parameter.push({
+		key: 'eventParameters',
+		type: 'list',
+		list: parameters
+	});
+
+	const newEventTag = Tagmanager_v2.Accounts.Containers.Workspaces.Tags
+	.create(skeletonEventTag, gtmPath);
+		
+	logChange(
+		newEventTag.name,
+		newEventTag.type,
+		newEventTag.tagId,
+		'Created',
+		newEventTag.tagManagerUrl
+	);
+}
+
+/**
+ * Kicks off the migration of the event tags.
+ */
+function migrateEventTags() {
+	const customDefinitionMappings = getMappingsFromSheet(
+		eventMigrationSheet,
+		emCustomDefinitionsReadRange,
+		'event',
+		'cds'
+	).customDefinitions;	
+
+  const tags = getTagsFromSheet(
+		eventMigrationSheet, emTagsReadRange, 'event', ''
+	);
+	
+  tags.forEach(tag => migrateEventTag(tag, customDefinitionMappings));
+}
