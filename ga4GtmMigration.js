@@ -971,3 +971,13 @@ function emListConfigTags() {
 		validationSheet, emConfigTagRange, analyticsVersion.ga4Config, ''
 	);
 }
+
+/**
+ * Lists the UA event tag names and IDs in the event migration sheet.
+ */
+function emListUAEventTags() {
+  emWriteTagsToSheet(
+		eventMigrationSheet, emTagsWriteRange, analyticsVersion.ua, uaTagType.event
+	);
+	emListConfigTags();
+}
