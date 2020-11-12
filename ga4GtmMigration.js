@@ -721,23 +721,48 @@ function pmWriteUAPageviewToSheet() {
 }
 
 /**
- * Returns an object contain a tag the tag name in the spreadsheet.
+ * Returns an array containing tags, tag Ids, and tag names.
  * @param {!Object} sheet Sheet where the pageview tag IDs and names exist.
  * @param {!Object} range Sheet range for the pageview tags IDs and names.
- * @param {string} type The kind of pageview that will be returned.
- * @return {!Object}
+ * @param {string} workflow Either pageview or event migration.
+ * @param {string} tagType The kind of pageview that will be returned.
+ * @return {!Array<?Object>}
  */
-function getTagsFromSheet(sheet, range, type) {
-  const rows =
-      sheet.getRange(range.row, range.column, range.numRows, range.numColumns)
-          .getValues();
-  const tags = [];
-  rows.forEach(row => {
-    if (type == row[2] || type == 'all') {
-      tags.push({tagName: row[0], tag: getTag(row[1]), id: row[1]});
-    }
-  });
-  return tags;
+function getTagsFromSheet(sheet, range, migrationType, tagType) {
+  const rows = sheet.getRange(
+		range.row, range.column, range.numRows, range.numColumns
+	).getValues();
+	const tagIds = [];
+	rows.forEach(row => {
+		tagIds.push(row[1]);
+	});
+  
+	const tagData = [];
+	
+	const tags = listTags();
+	
+	tags.forEach(tag => {
+		const tagIdIndex = tagIds.indexOf(parseInt(tag.getTagId()));
+		if (migrationType == 'pageview' && tagIdIndex != -1) {
+			if (rows[tagIdIndex][2] == tagType || tagType == 'all') {
+				tagData.push({
+					tagName: rows[tagIdIndex][0],
+					id: rows[tagIdIndex][1], 
+					tag: tag
+				});
+			}
+		} else if (migrationType == 'event' && tagIdIndex != -1) {
+			if (rows[tagIdIndex][4]) {
+				tagData.push({
+					tagName: rows[tagIdIndex][2],
+					id: rows[tagIdIndex][1], 
+					tag: tag,
+					configTag: rows[tagIdIndex][3]
+				});
+			}
+		}
+	});
+	return tagData
 }
 
 /**
@@ -862,7 +887,7 @@ function migrateConfigTag() {
 	).fields;	
 	
   const tags = getTagsFromSheet(
-		pageviewMigrationSheet, pmTagRange, 'Config Tag'
+		pageviewMigrationSheet, pmTagRange, 'pageview', 'Config Tag'
 	);
 	
   tags.forEach(tag => {
@@ -891,7 +916,9 @@ function migratePageviewEventTags() {
 	).fields;			
 
   const tags = getTagsFromSheet(
-      pageviewMigrationSheet, pmTagRange, 'Event Tag');
+      pageviewMigrationSheet, pmTagRange, 'pageview', 'Event Tag'
+	);
+	
   tags.forEach(tag => {
     migratePageviewTag(
 			tag, 'Event Tag', customDefinitionMappings, fieldMappings
