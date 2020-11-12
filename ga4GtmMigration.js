@@ -947,6 +947,20 @@ const emConfigTagRange = {
 	numColumns: 2
 }
 
+const emCustomDefinitionsWriteRange = {
+	row: 2,
+	column: 7,
+	numRows: eventMigrationSheet.getLastRow(),
+	numColumns: 5
+}
+
+const emCustomDefinitionsReadRange = {
+	row: 2,
+	column: 7,
+	numRows: eventMigrationSheet.getLastRow(),
+	numColumns: 8
+}
+
 /**
  * Writes config tag names and IDs to the validation sheet to create a drop-down
  * menu for user to select from on the event migration sheet.
@@ -980,4 +994,23 @@ function emListUAEventTags() {
 		eventMigrationSheet, emTagsWriteRange, analyticsVersion.ua, uaTagType.event
 	);
 	emListConfigTags();
+}
+
+/** 
+ * Writes the custom definitions for all UA event tags in a GTM container to
+ * the event migration sheet.
+ */
+function emWriteCustomDefinitionsToSheet() {
+	let customDefinitions = [];
+	
+  const eventTags = filterTags(
+		listTags(), analyticsVersion.ua, uaTagType.event
+	);
+  eventTags.forEach(tag => {
+    customDefinitions = customDefinitions.concat(cdList(tag));
+  });
+
+  cdWriteToSheet(
+      eventMigrationSheet, emCustomDefinitionsWriteRange, customDefinitions
+	);
 }
