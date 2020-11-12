@@ -25,7 +25,7 @@
  */
 function onOpen() {
   const analyticsPageviewSubMenu = SpreadsheetApp.getUi()
-  .createMenu('Main Pageview Migration')
+  .createMenu('Pageview Migration')
   .addItem('List UA Settings Variables', 'pmWriteUAVariableToSheet')
   .addItem('List UA Pageview Tags', 'pmWriteUAPageviewToSheet')
   .addItem('List UA Fields', 'pmWriteFieldsToSheet')
@@ -33,10 +33,18 @@ function onOpen() {
   .addSeparator()
   .addItem('Migrate Config Tag', 'migrateConfigTag')
   .addItem('Migrate Pageview Event Tags', 'migratePageviewEventTags')
+	
+  const analyticsEventSubMenu = SpreadsheetApp.getUi()
+	.createMenu('Event Migration')
+	.addItem('List UA Events', 'emListUAEventTags')
+	.addItem('List Custom Definitions', 'emWriteCustomDefinitionsToSheet')
+	.addSeparator()
+	.addItem('Migrate Event Tags', 'migrateEventTags')
 
   SpreadsheetApp.getUi()
   .createMenu('GTM Migration')
   .addSubMenu(analyticsPageviewSubMenu)
+	.addSubMenu(analyticsEventSubMenu)
   .addToUi();
 }
 
