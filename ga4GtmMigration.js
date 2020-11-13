@@ -105,6 +105,8 @@ const pmTagRange = {
 	numColumns: 3
 }
 
+const tagSuffix = ' - GA4';
+
 // Entity types as defined by the GTM API.
 // TODO(bkuehn): List all entity types that will be used for filtering..
 const analyticsVersion = {
@@ -138,7 +140,7 @@ const migrateTo = {
  * @return {?Object} The API response.
  */
 function listVariables() {
-  return Tagmanager_v2.Accounts.Containers.Workspaces.Variables.list(gtmPath)
+  return TagManager.Accounts.Containers.Workspaces.Variables.list(gtmPath)
       .variable;
 }
 
@@ -147,7 +149,7 @@ function listVariables() {
  * @return {?Object} The API response.
  */
 function listTags() {
-  return Tagmanager_v2.Accounts.Containers.Workspaces.Tags.list(gtmPath).tag;
+  return TagManager.Accounts.Containers.Workspaces.Tags.list(gtmPath).tag;
 }
 
 /**
@@ -156,7 +158,7 @@ function listTags() {
  * @return {?Object} A variable object.
  */
 function getVariable(id) {
-  return Tagmanager_v2.Accounts.Containers.Workspaces.Variables.get(
+  return TagManager.Accounts.Containers.Workspaces.Variables.get(
       gtmPath + '/variables/' + id);
 }
 
@@ -166,7 +168,7 @@ function getVariable(id) {
  * @return {?Object} A tag object.
  */
 function getTag(id) {
-  return Tagmanager_v2.Accounts.Containers.Workspaces.Tags.get(
+  return TagManager.Accounts.Containers.Workspaces.Tags.get(
       gtmPath + '/tags/' + id);
 }
 
@@ -313,7 +315,7 @@ function convertToSnakeCase(fields) {
   fields.forEach(field => {
     if (/{{/.test(field[2]) == false) {
 			const convertedName = field[2].replace( /([A-Z])/g, " $1" );
-			field[1] = convertedName.split(' ').join('_').toLowerCase();
+			field[2] = convertedName.split(' ').join('_').toLowerCase();
     }
   });
   return fields;
@@ -677,9 +679,12 @@ function pmWriteFieldsToSheet() {
   );
   fields = fields.concat(fieldsList(analyticsVariable));
 
-  const pageviewTags = listTagNamesAndIds(
-		filterTags(listTags(), analyticsVersion.ua, uaTagType.pageview)
+  const pageviewTags = filterTags(
+		listTags(),
+		analyticsVersion.ua,
+		uaTagType.pageview
 	);
+	
   pageviewTags.forEach(tag => {
     fields = fields.concat(fieldsList(tag));
   });
@@ -801,7 +806,7 @@ function migratePageviewTag(
 			customDefinitionMappings.configTag.metric)
 
     skeletonPageviewTag.type = 'gaawc';
-    skeletonPageviewTag.name = tag.tagName + ' - A+W - Config';
+    skeletonPageviewTag.name = tag.tagName + tagSuffix;
 	  skeletonPageviewTag.parameter.push({
 			key: 'userProperties',
 			type: 'list',
@@ -824,7 +829,7 @@ function migratePageviewTag(
     );
 		// Set the tag type to GA4's event type.
     skeletonPageviewTag.type = analyticsVersion.ga4Event;
-    skeletonPageviewTag.name = tag.tagName + ' - A+W - Virtual Pageview';
+    skeletonPageviewTag.name = tag.tagName + tagSuffix;
 		// Set the event name to page_view.
     skeletonPageviewTag.parameter.push({
 			key: 'eventName', 
@@ -869,7 +874,7 @@ function migratePageviewTag(
   }
 
   const newPageviewTag =
-      Tagmanager_v2.Accounts.Containers.Workspaces.Tags.create(
+      TagManager.Accounts.Containers.Workspaces.Tags.create(
           skeletonPageviewTag, gtmPath);
   logChange(
       newPageviewTag.name, newPageviewTag.type, newPageviewTag.tagId, 'Created',
@@ -1062,7 +1067,7 @@ function migrateEventTag(tag, customDefinitionMappings) {
 	
 	// Set the tag type to GA4's event type.
   skeletonEventTag.type = analyticsVersion.ga4Event;
-  skeletonEventTag.name = tag.tagName + ' - GA4';
+  skeletonEventTag.name = tag.tagName + tagSuffix;
 	
 	// Set the event name to page_view.
   skeletonEventTag.parameter.push({
@@ -1106,7 +1111,7 @@ function migrateEventTag(tag, customDefinitionMappings) {
 		list: parameters
 	});
 
-	const newEventTag = Tagmanager_v2.Accounts.Containers.Workspaces.Tags
+	const newEventTag = TagManager.Accounts.Containers.Workspaces.Tags
 	.create(skeletonEventTag, gtmPath);
 		
 	logChange(
