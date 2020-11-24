@@ -45,15 +45,13 @@ function onOpen() {
   .createMenu('GTM Migration')
   .addSubMenu(analyticsPageviewSubMenu)
 	.addSubMenu(analyticsEventSubMenu)
+	.addSeparator()
+	.addItem('Authorize Permissions', 'authorization')
   .addToUi();
 }
 
 // Values will be shared across multiple functions.
 const ss = SpreadsheetApp.getActive();
-/*
- * TODO(bkuehn): Create checks to see if a sheet already exists and
- * otherwise creates necessary sheets
- */
 const settingsSheet = ss.getSheetByName('GTM URL');
 const changelogSheet = ss.getSheetByName('Changelog');
 const pageviewMigrationSheet = ss.getSheetByName('Pageview Migration');
@@ -108,7 +106,6 @@ const pmTagRange = {
 const tagSuffix = ' - GA4';
 
 // Entity types as defined by the GTM API.
-// TODO(bkuehn): List all entity types that will be used for filtering..
 const analyticsVersion = {
 	ga4Config: 'gaawc',
 	ga4Event: 'gaawe',
@@ -121,7 +118,6 @@ const uaTagType = {
 }
 
 // Parameter key values as defined by the GTM API.
-// TODO(bkuehn): List all parameter key values that will be used for filtering.
 const paramKeyValues = {
 	mid: 'measurementId',
 	trackType: 'trackType'
@@ -170,6 +166,15 @@ function getVariable(id) {
 function getTag(id) {
   return TagManager.Accounts.Containers.Workspaces.Tags.get(
       gtmPath + '/tags/' + id);
+}
+
+/**
+ * Runs some API requests to force the script to request auth permissions.
+ */
+function authorization() {
+  Session.getActiveUser().getEmail();
+  TagManager.Accounts.list();
+  SpreadsheetApp.getActive();
 }
 
 /**
@@ -454,7 +459,6 @@ function avWriteToSheet(sheet, range) {
   const analyticsVariables = avFilter(variables);
   range.numRows = analyticsVariables.length;
   range.numColumns = 3;
-  // TODO(bkuehn): Add a notificaiton for when there are no UA variables
   if (analyticsVariables.length > 0) {
     sheet.getRange(range.row, range.column, range.numRows, range.numColumns)
         .setValues(analyticsVariables);
@@ -577,10 +581,6 @@ function cdGetFromSheet(sheet, range) {
     const fieldValue = row[2];
     const fieldName = row[4];
     const scope = row[5];
-		/*
-		* TODO(bkuehn): Add a condition to distinguish which custom definitions
-		* should be associated with which tags.
-		*/
     if (scope == 'dimension') {
       userProperties.push({
         map: [
