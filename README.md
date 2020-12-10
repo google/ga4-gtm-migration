@@ -11,9 +11,10 @@ Follow these steps to properly install the script:
 
 
 
-1. Create a copy of [this spreadsheet](https://docs.google.com/spreadsheets/d/1wpmw7kkHpHzPIDC-mJS3BkSqGqf46W7E5UYpYTFilEc/edit?resourcekey=0-iEpABBGIT6mtfbUtfcsktA#gid=712345901)
-2. Click on GA4 GTM Migration > Authorize Permissions
-3. Accept the permissions request in the pop-up
+1. Join [this group](https://groups.google.com/g/ga4-gtm-migration-users) to gain access to the spreadsheet
+2. Create a copy of [this spreadsheet](https://docs.google.com/spreadsheets/d/1wpmw7kkHpHzPIDC-mJS3BkSqGqf46W7E5UYpYTFilEc/edit?resourcekey=0-iEpABBGIT6mtfbUtfcsktA#gid=712345901)
+3. Click on GA4 GTM Migration > Authorize Permissions
+4. Accept the permissions request in the pop-up
 
 The spreadsheet should now be ready to migrate UA tags to GA4.
 
