@@ -62,45 +62,67 @@ const gtmUrl = settingsSheet.getRange('B1').getValue();
 const gtmPath = gtmUrl.split('#/container/')[1];
 
 // Pageview migration sheet ranges.
-
-// Fields range for the pageview migration sheet.
-const pmFieldsRange = {
-	row: 2,
-	column: 11,
-	numRows: pageviewMigrationSheet.getLastRow(),
-	numColumns: 5
-};
-
-// Custom definitions write range for the pageview migration sheet.
-const pmCustomDefinitionsWriteRange = {
-  row: 2,
-  column: 17,
-  numRows: pageviewMigrationSheet.getLastRow(),
-  numColumns: 5
-};
-
-// Custom definitions read write range for the pageview migration sheet.
-const pmCustomDefinitionsReadRange = {
-  row: 2,
-  column: 17,
-  numRows: pageviewMigrationSheet.getLastRow(),
-  numColumns: 8
-};
-
-// UA settings variable range for the pageview migration sheet.
-const pmSettingsVariableRange = {
-  row: 2,
-  column: 1,
-  numRows: pageviewMigrationSheet.getLastRow(),
-  numColumns: 5
-};
-
-// UA pageview tags range for the pageview migration sheet.
-const pmTagRange = {
-	row: 2, 
-	column: 7, 
-	numRows: 50, 
-	numColumns: 3
+const pageviewRanges = {
+  // Fields ranges for the pageview migration sheet.
+  fields: {
+    write: {
+      row: 2,
+      column: 11,
+      numRows: pageviewMigrationSheet.getLastRow(),
+      numColumns: 5
+    },
+    read: {
+      row: 2,
+      column: 11,
+      numRows: pageviewMigrationSheet.getLastRow(),
+      numColumns: 5
+    }
+  },
+  // Custom definitions ranges for the pageview migration sheet.
+  customDefinitions: {
+    write: {
+      row: 2,
+      column: 17,
+      numRows: pageviewMigrationSheet.getLastRow(),
+      numColumns: 5
+    },
+    read: {
+      row: 2,
+      column: 17,
+      numRows: pageviewMigrationSheet.getLastRow(),
+      numColumns: 8
+    }
+  },
+  // UA settings variable ranges for the pageview migration sheet.
+  settingsVariable: {
+    write: {
+      row: 2,
+      column: 1,
+      numRows: pageviewMigrationSheet.getLastRow(),
+      numColumns: 5
+    },
+    read: {
+      row: 2,
+      column: 1,
+      numRows: pageviewMigrationSheet.getLastRow(),
+      numColumns: 5
+    }
+  },
+  // UA pageview tags ranges for the pageview migration sheet.
+  uaPageviewTags: {
+    write: {
+      row: 2, 
+      column: 7, 
+      numRows: 50, 
+      numColumns: 3
+    },
+    read: {
+      row: 2, 
+      column: 7, 
+      numRows: 50, 
+      numColumns: 3
+    }
+  }
 }
 
 const tagSuffix = ' - GA4';
@@ -644,7 +666,7 @@ function fieldsWriteToSheet(sheet, fields, clearRange, contentRange) {
  * Writes the UA variables in a workspace to the pageview migration sheet.
  */
 function pmWriteUAVariableToSheet() {
-  avWriteToSheet(pageviewMigrationSheet, pmSettingsVariableRange);
+  avWriteToSheet(pageviewMigrationSheet, pageviewRanges.settingsVariable.write);
 }
 
 /**
@@ -655,7 +677,7 @@ function pmWriteFieldsToSheet() {
   let fields = [];
 
   const analyticsVariable = getVariable(
-    avGetIds(pageviewMigrationSheet, pmSettingsVariableRange, 'UA')
+    avGetIds(pageviewMigrationSheet, pageviewRanges.settingsVariable.read, 'UA')
   );
   fields = fields.concat(fieldsList(analyticsVariable));
 
@@ -670,7 +692,7 @@ function pmWriteFieldsToSheet() {
   });
 
   fieldsWriteToSheet(
-      pageviewMigrationSheet, fields, pmFieldsRange, pmFieldsRange);
+      pageviewMigrationSheet, fields, pageviewRanges.fields.write, pageviewRanges.fields.write);
 }
 
 /**
@@ -681,7 +703,7 @@ function pmWriteCustomDefinitionsToSheet() {
   let customDefinitions = [];
 	
 	const analyticsVariableId = avGetIds(
-		pageviewMigrationSheet, pmSettingsVariableRange, 'UA'
+		pageviewMigrationSheet, pageviewRanges.settingsVariable.read, 'UA'
 	);
 	const analyticsVariable = getVariable(analyticsVariableId);
 	
@@ -695,7 +717,7 @@ function pmWriteCustomDefinitionsToSheet() {
   });
 
   cdWriteToSheet(
-      pageviewMigrationSheet, pmCustomDefinitionsWriteRange, customDefinitions);
+      pageviewMigrationSheet, pageviewRanges.customDefinitions.write, customDefinitions);
 }
 
 /**
@@ -708,7 +730,7 @@ function pmWriteUAPageviewToSheet() {
 	);
   if (pageviewTags.length) {
     pageviewMigrationSheet
-        .getRange(pmTagRange.row, pmTagRange.column, pageviewTags.length, 2)
+        .getRange(pageviewRanges.uaPageviewTags.write.row, pageviewRanges.uaPageviewTags.write.column, pageviewTags.length, 2)
         .setValues(pageviewTags);
   }
 }
@@ -778,7 +800,7 @@ function migratePageviewTag(
   if (tagType == 'Config Tag') {
     const measurementId = avGetIds(
 			pageviewMigrationSheet,
-			pmSettingsVariableRange,
+			pageviewRanges.settingsVariable.read,
 			'GA4'
 		);
 		
@@ -805,7 +827,7 @@ function migratePageviewTag(
 
   } else if (tagType == 'Event Tag') {
     const configTag = getConfigTag(
-      avGetIds(pageviewMigrationSheet, pmSettingsVariableRange, 'GA4')
+      avGetIds(pageviewMigrationSheet, pageviewRanges.settingsVariable.read, 'GA4')
     );
 		// Set the tag type to GA4's event type.
     skeletonPageviewTag.type = analyticsVersion.ga4Event;
@@ -867,20 +889,20 @@ function migratePageviewTag(
 function migrateConfigTag() {
 	const customDefinitionMappings = getMappingsFromSheet(
 		pageviewMigrationSheet,
-		pmCustomDefinitionsReadRange,
+		pageviewRanges.customDefinitions.read,
 		'pageview',
 		'cds'
 	).customDefinitions;
 
 	const fieldMappings = getMappingsFromSheet(
 		pageviewMigrationSheet,
-		pmFieldsRange,
+		pageviewRanges.fields.read,
 		'pageview',
 		'fields'
 	).fields;	
 	
   const tags = getTagsFromSheet(
-		pageviewMigrationSheet, pmTagRange, 'pageview', 'Config Tag'
+		pageviewMigrationSheet, pageviewRanges.uaPageviewTags.read, 'pageview', 'Config Tag'
 	);
 	
   tags.forEach(tag => {
@@ -897,20 +919,20 @@ function migrateConfigTag() {
 function migratePageviewEventTags() {
 	const customDefinitionMappings = getMappingsFromSheet(
 		pageviewMigrationSheet,
-		pmCustomDefinitionsReadRange,
+		pageviewRanges.customDefinitions.read,
 		'pageview',
 		'cds'
 	).customDefinitions;
 
 	const fieldMappings = getMappingsFromSheet(
 		pageviewMigrationSheet,
-		pmFieldsRange,
+		pageviewRanges.fields.read,
 		'pageview',
 		'fields'
 	).fields;			
 
   const tags = getTagsFromSheet(
-      pageviewMigrationSheet, pmTagRange, 'pageview', 'Event Tag'
+      pageviewMigrationSheet, pageviewRanges.uaPageviewTags.read, 'pageview', 'Event Tag'
 	);
 	
   tags.forEach(tag => {
@@ -947,40 +969,53 @@ function logChange(entityName, entityType, entityId, actionTaken, gtmURL) {
 
 // Event config tag functions.
 
-const emTagsWriteRange = {
-	row: 2,
-	column: 1,
-	numRows: eventMigrationSheet.getLastRow(),
-	numColumns: 2
-}
-
-const emTagsReadRange = {
-	row: 2,
-	column: 1,
-	numRows: eventMigrationSheet.getLastRow(),
-	numColumns: 5
-}
-
-
-const emConfigTagRange = {
-	row: 2,
-	column: 5,
-	numRows: validationSheet.getLastRow(),
-	numColumns: 2
-}
-
-const emCustomDefinitionsWriteRange = {
-	row: 2,
-	column: 7,
-	numRows: eventMigrationSheet.getLastRow(),
-	numColumns: 5
-}
-
-const emCustomDefinitionsReadRange = {
-	row: 2,
-	column: 7,
-	numRows: eventMigrationSheet.getLastRow(),
-	numColumns: 8
+// Event migration ranges
+const eventRanges = {
+  // UA event tags ranges for the event migration sheet.
+  eventTags: {
+    write: {
+      row: 2,
+      column: 1,
+      numRows: eventMigrationSheet.getLastRow(),
+      numColumns: 2
+    },
+    read: {
+      row: 2,
+      column: 1,
+      numRows: eventMigrationSheet.getLastRow(),
+      numColumns: 5
+    }
+  },
+  // GA4 config tag ranges for the validation sheet.
+  configTags: {
+    write: {
+      row: 2,
+      column: 5,
+      numRows: validationSheet.getLastRow(),
+      numColumns: 2
+    },
+    read: {
+      row: 2,
+      column: 5,
+      numRows: validationSheet.getLastRow(),
+      numColumns: 2
+    }
+  },
+  // Custom definitions ranges for the event migration sheet.
+  customDefinitions: {
+    write: {
+      row: 2,
+      column: 7,
+      numRows: eventMigrationSheet.getLastRow(),
+      numColumns: 5
+    },
+    read: {
+      row: 2,
+      column: 7,
+      numRows: eventMigrationSheet.getLastRow(),
+      numColumns: 8
+    }
+  }
 }
 
 /**
@@ -1004,7 +1039,7 @@ function emWriteTagsToSheet(sheet, range, gaVersion, uaType) {
  */
 function emListConfigTags() {
   emWriteTagsToSheet(
-		validationSheet, emConfigTagRange, analyticsVersion.ga4Config, ''
+		validationSheet, eventRanges.configTags.write, analyticsVersion.ga4Config, ''
 	);
 }
 
@@ -1013,7 +1048,7 @@ function emListConfigTags() {
  */
 function emListUAEventTags() {
   emWriteTagsToSheet(
-		eventMigrationSheet, emTagsWriteRange, analyticsVersion.ua, uaTagType.event
+		eventMigrationSheet, eventRanges.eventTags.write, analyticsVersion.ua, uaTagType.event
 	);
 	emListConfigTags();
 }
@@ -1033,7 +1068,7 @@ function emWriteCustomDefinitionsToSheet() {
   });
 
   cdWriteToSheet(
-      eventMigrationSheet, emCustomDefinitionsWriteRange, customDefinitions
+      eventMigrationSheet, eventRanges.customDefinitions.write, customDefinitions
 	);
 }
 
@@ -1111,13 +1146,13 @@ function migrateEventTag(tag, customDefinitionMappings) {
 function migrateEventTags() {
 	const customDefinitionMappings = getMappingsFromSheet(
 		eventMigrationSheet,
-		emCustomDefinitionsReadRange,
+		eventRanges.customDefinitions.read,
 		'event',
 		'cds'
 	).customDefinitions;	
 
   const tags = getTagsFromSheet(
-		eventMigrationSheet, emTagsReadRange, 'event', ''
+		eventMigrationSheet, eventRanges.eventTags.read, 'event', ''
 	);
 	
   tags.forEach(tag => {
