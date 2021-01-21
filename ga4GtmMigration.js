@@ -37,6 +37,7 @@ function onOpen() {
   const analyticsEventSubMenu = SpreadsheetApp.getUi()
 	.createMenu('Event Migration')
 	.addItem('List UA Events', 'emListUAEventTags')
+  .addItem('List UA Event Data', 'emWriteUAEventDataToSheet')
 	.addItem('List Custom Definitions', 'emWriteCustomDefinitionsToSheet')
 	.addSeparator()
 	.addItem('Migrate Event Tags', 'migrateEventTags')
@@ -548,7 +549,7 @@ function cdWriteToSheet(sheet, range, customDefinitions) {
 /**
  * Lists the custom definitions in a given tag or variable.
  * @param {!Object} entity A tag or variable object.
- * @return {!Array<?Array<string>>} Either an emptry array or a double array of
+ * @return {!Array<?Array<string>>} Either an empty array or a double array of
  * custom definitions in a given tag or variable.
  */
 function cdList(entity) {
@@ -783,7 +784,7 @@ function getTagsFromSheet(sheet, range, migrationType, tagType) {
 				});
 			}
 		} else if (migrationType == 'event' && tagIdIndex != -1) {
-			if (rows[tagIdIndex][4]) {
+			if (rows[tagIdIndex][5]) {
 				tagData.push({
           id: rows[tagIdIndex][1], 
 					tagName: rows[tagIdIndex][2],
@@ -1014,15 +1015,30 @@ const eventRanges = {
   customDefinitions: {
     write: {
       row: 2,
-      column: 8,
+      column: 16,
       numRows: eventMigrationSheet.getLastRow(),
       numColumns: 6
     },
     read: {
       row: 2,
-      column: 8,
+      column: 16,
       numRows: eventMigrationSheet.getLastRow(),
       numColumns: 8
+    }
+  },
+  // Event data (category, action, and label values) ranges for the event migration sheet.
+  eventData: {
+    write: {
+      row: 2,
+      column: 8,
+      numRows: eventMigrationSheet.getLastRow(),
+      numColumns: 5
+    },
+    read: {
+      row: 2,
+      column: 8,
+      numRows: eventMigrationSheet.getLastRow(),
+      numColumns: 7
     }
   }
 }
@@ -1082,12 +1098,156 @@ function emWriteCustomDefinitionsToSheet() {
 }
 
 /**
+ * Lists the category, action, and label values in a given tag.
+ * @param {!Object} entity A tag object.
+ * @return {!Array<?Array<string>>} Either an empty array or a double array of
+ * event data from a given tag.
+ */
+function uaEventDataList(entity) {
+  let eventData = [];
+  if (entity.parameter != undefined) {
+    entity.parameter.forEach(param => {
+      const entityName = entity.name;
+      const id = entity.variableId || entity.tagId;
+      if (param.getKey() == 'eventCategory' || 
+      param.getKey() == 'eventAction' ||
+      param.getKey() == 'eventLabel') {
+        eventData.push([
+          entityName,
+          id,
+          param.getKey(),
+          '',
+          param.getValue()
+        ]);
+      }
+    });
+  }
+  return eventData;
+}
+
+/** 
+ * Writes UA event category, action, and label data to the event migration sheet.
+ */
+function emWriteUAEventDataToSheet() {
+	let eventData = [];
+  const allEventTags = filterTags(
+		listTags(), analyticsVersion.ua, uaTagType.event
+	);
+  const tagsFromSheet = getTagsFromSheet(
+		eventMigrationSheet, eventRanges.eventTags.read, 'event', ''
+	);
+  const selectedEventTags = getSelectedEventTagData(allEventTags, tagsFromSheet);
+  selectedEventTags.forEach(tag => {
+    eventData = eventData.concat(uaEventDataList(tag));
+  });
+  eventDataWriteToSheet(
+      eventMigrationSheet, eventRanges.eventData.write, eventData
+	);
+}
+
+/**
+ * Retrieves the tag object data for the selected event tags.
+ * @param {!Array<!Object>} tagObjects An array of all tag objects from the workspace.
+ * @param {!Array<?Object>} selectedSheetRows The rows of selected event tags from
+ * the event migration sheet.
+ * @return {!Array<?Objec>} An array of selected tag objects.
+ */
+function getSelectedEventTagData(tagObjects, selectedSheetRows) {
+  const selectedTags = [];
+  selectedSheetRows.forEach(row => {
+    tagObjects.forEach(tag => {
+      if (tag.tagId == row.id) {
+        selectedTags.push(tag);
+      }
+    });
+  });
+  return selectedTags;
+}
+
+/**
+ * Writes event category, action, and label data to a sheet.
+ * @param {!Object} sheet The sheet the information will be written to.
+ * @param {!Object} range The sheet range for the data to be written.
+ * @param {!Array<!Array<string>>} A double array listing the event data to be
+ * written to the sheet.
+ */
+function eventDataWriteToSheet(sheet, range, eventData) {
+  range.numRows = eventData.length;
+  if (eventData.length > 0) {
+    sheet
+        .getRange(range.row, range.column, range.numRows, range.numColumns)
+        .setValues(eventData);
+  }
+}
+
+/**
+ * Retrieves event data from the sheet and converts them into
+ * mappings that can be added to a tag.
+ * @param {!Object} sheet Sheet where the fields to set exist.
+ * @param {!Object} range Sheet range where the fields to set exist.
+ * @return {!Object} Returns an object that contains mappings to be applied
+ * to tags.
+ */
+function getEventDataMappings(sheet, range) {
+  const values =
+	sheet.getRange(range.row, range.column, range.numRows, range.numColumns)
+	.getValues();
+	
+	const mappings = {
+		eventData: {
+			allEventTags: {
+				user_property: [],
+				parameter: []
+			},
+			singleEventTags: []
+		}
+	};
+
+  if (values[0][0] != '') {
+    let filteredRows = removeEmptyRows(values);
+		const entityIds = [];
+		
+    filteredRows.forEach(row => {
+			const entityId = row[1];
+			const fieldName = row[3];
+			const fieldValue = row[4];
+			const scope = row[5];
+			const migrateToOption = row[6];
+
+			if (migrateToOption == migrateTo.allEvents) {
+				mappings.eventData.allEventTags[scope]
+				.push(buildMapObject(fieldName, fieldValue));
+			} else if (migrateToOption == migrateTo.singleEvent) {
+				if (entityIds.indexOf(entityId) != -1) {
+					mappings.eventData
+					.singleEventTags[entityIds.indexOf(entityId)][scope]
+					.push(buildMapObject(fieldName, fieldValue));
+				} else {
+					entityIds.push(entityId);
+					mappings.eventData.singleEventTags
+					.push({
+						entityId: entityId,
+						user_property: [],
+						parameter: []
+					})
+					mappings.eventData
+					.singleEventTags[entityIds.indexOf(entityId)][scope]
+					.push(buildMapObject(fieldName, fieldValue));
+				}
+			}
+    });
+  }
+	return mappings;
+} 
+
+/**
  * Creates a new GA4 tag basd on the original UA event.
  * @param {!Object} tag The tag to be migrated.
  * @param {?Object} customDefinitionMappings The custom definitions from the 
- * old tag to be added to the new tag.
+ * original tag.
+ * @param {?Object} eventDataMappings The event data from the original tag.
  */
-function migrateEventTag(tag, customDefinitionMappings) {
+function migrateEventTag(tag, customDefinitionMappings, eventDataMappings) {
   let skeletonEventTag = getTagSkeleton(tag.tag);
   skeletonEventTag.parameter = [];
 	
@@ -1108,23 +1268,31 @@ function migrateEventTag(tag, customDefinitionMappings) {
 		value: tag.configTag
 	});
 		
-	// Set custom definitions associated with all event tags.
+	// Set mappings associated with all event tags.
 	let parameters = [];
 	parameters = parameters.concat(
-		customDefinitionMappings.allEventTags.parameter
+		customDefinitionMappings.allEventTags.parameter,
+    eventDataMappings.allEventTags.parameter
 	);
 	let userProperties = [];
 	userProperties = userProperties.concat(
-		customDefinitionMappings.allEventTags.user_property
+		customDefinitionMappings.allEventTags.user_property,
+    eventDataMappings.allEventTags.user_property
 	);
 	
-	// Set custom definitions from corresponding tag.
+	// Set mappings for corresponding tag.
 	customDefinitionMappings.singleEventTags.forEach(entity => {
 		if (entity.entityId == tag.id) {
 			parameters = parameters.concat(entity.parameter);
 			userProperties = userProperties.concat(entity.user_property);
 		}
 	});
+  eventDataMappings.singleEventTags.forEach(entity => {
+    if (entity.entityId == tag.id) {
+      parameters = parameters.concat(entity.parameter);
+      userProperties = userProperties.concat(entity.user_property);
+    }
+  });
 		
 	skeletonEventTag.parameter.push({
 		key: 'userProperties',
@@ -1156,14 +1324,19 @@ function migrateEventTags() {
 	const customDefinitionMappings = getCustomDefinitionMappings(
 		eventMigrationSheet,
 		eventRanges.customDefinitions.read
-	).customDefinitions;	
+	).customDefinitions;
+
+  const eventDataMappings = getEventDataMappings(
+    eventMigrationSheet,
+    eventRanges.eventData.read
+  ).eventData;
 
   const tags = getTagsFromSheet(
 		eventMigrationSheet, eventRanges.eventTags.read, 'event', ''
 	);
 	
   tags.forEach(tag => {
-		migrateEventTag(tag, customDefinitionMappings);
+		migrateEventTag(tag, customDefinitionMappings, eventDataMappings);
 		Utilities.sleep(200);
 	});
 }
