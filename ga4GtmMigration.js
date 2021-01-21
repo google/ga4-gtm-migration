@@ -67,13 +67,13 @@ const pageviewRanges = {
   fields: {
     write: {
       row: 2,
-      column: 11,
+      column: 12,
       numRows: pageviewMigrationSheet.getLastRow(),
       numColumns: 5
     },
     read: {
       row: 2,
-      column: 11,
+      column: 12,
       numRows: pageviewMigrationSheet.getLastRow(),
       numColumns: 5
     }
@@ -82,13 +82,13 @@ const pageviewRanges = {
   customDefinitions: {
     write: {
       row: 2,
-      column: 17,
+      column: 18,
       numRows: pageviewMigrationSheet.getLastRow(),
-      numColumns: 5
+      numColumns: 6
     },
     read: {
       row: 2,
-      column: 17,
+      column: 18,
       numRows: pageviewMigrationSheet.getLastRow(),
       numColumns: 8
     }
@@ -114,18 +114,16 @@ const pageviewRanges = {
       row: 2, 
       column: 7, 
       numRows: 50, 
-      numColumns: 3
+      numColumns: 4
     },
     read: {
       row: 2, 
       column: 7, 
       numRows: 50, 
-      numColumns: 3
+      numColumns: 4
     }
   }
 }
-
-const tagSuffix = ' - GA4';
 
 // Entity types as defined by the GTM API.
 const analyticsVersion = {
@@ -345,27 +343,73 @@ function buildMapObject (name, value) {
 }
 
 /**
- * Retrieves fields or custom definitions from the sheet and converts them into
+ * Retrieves fields from the sheet and converts them into
  * mappings that can be added to a tag or variable.
  * @param {!Object} sheet Sheet where the fields to set exist.
  * @param {!Object} range Sheet range where the fields to set exist.
- * @param {string} migrationType The type (pageview or event) of migration 
- * taking place.
- * @param {string} mappingType The mapping type (fields or cds))
  * @return {!Object} Returns an object that contains the mappings to be applied
  * to the tags or variables.
  */
-function getMappingsFromSheet(sheet, range, migrationType, mappingType) {
+function getFieldMappings(sheet, range) {
+  const values =
+	sheet.getRange(range.row, range.column, range.numRows, range.numColumns)
+	.getValues();
+
+  const mappings = {
+		fields: {
+			configTag: [],
+			allEventTags: [],
+			singleEventTags: []	
+		}
+	};
+
+  if (values[0][0] != '') {
+    let filteredRows = removeEmptyRows(values);
+		const entityIds = [];
+		
+    filteredRows.forEach(row => {
+			const entityId = row[0];
+			const fieldName = row[1];
+			const fieldValue = row[2];
+			const migrateToOption = row[3]
+			
+			if (migrateToOption == migrateTo.config) {
+				mappings.fields.configTag.push(buildMapObject(fieldName, fieldValue));
+			} else if (migrateToOption == migrateTo.allEvents) {
+				mappings.fields.allEventTags
+					.push(buildMapObject(fieldName, fieldValue));
+			} else if (migrateToOption == migrateTo.singleEvent) {
+				if (entityIds.indexOf(entityId) != -1) {
+					mappings.fields.singleEventTags[entityIds.indexOf(entityId)]
+					.mappings.push(buildMapObject(fieldName, fieldValue));
+				} else {
+					entityIds.push(entityId);
+					mappings.fields.singleEventTags
+					.push({
+						entityId: entityId,
+						mappings: [buildMapObject(fieldName, fieldValue)]
+					});
+				}
+			}
+    });
+  }
+	return mappings;
+}
+
+/**
+ * Retrieves custom definitions from the sheet and converts them into
+ * mappings that can be added to a tag or variable.
+ * @param {!Object} sheet Sheet where the custom definitions to set exist.
+ * @param {!Object} range Sheet range where the custom definitions to set exist.
+ * @return {!Object} Returns an object that contains the mappings to be applied
+ * to the tags or variables.
+ */
+function getCustomDefinitionMappings(sheet, range) {
   const values =
 	sheet.getRange(range.row, range.column, range.numRows, range.numColumns)
 	.getValues();
 	
 	const mappings = {
-		fields: {
-			configTag: [],
-			allEventTags: [],
-			singleEventTags: []	
-		},
 		customDefinitions: {
 			configTag: {
 				user_property: [],
@@ -378,54 +422,25 @@ function getMappingsFromSheet(sheet, range, migrationType, mappingType) {
 			singleEventTags: []
 		}
 	};
+
   if (values[0][0] != '') {
     let filteredRows = removeEmptyRows(values);
 		const entityIds = [];
 		
     filteredRows.forEach(row => {
 			const entityId = row[1];
-			let fieldName = null;
-			let fieldValue = row[3];
-			let scope = null;
-			let migrateToOption = null;
-			
-			if (mappingType == 'fields') {
-        fieldName = row[2];
-        migrateToOption = row[4];
-			} else if (mappingType == 'cds') {
-        fieldName = row[5];
-				scope = row[6];
-        migrateToOption = row[7];
-			}
+			const fieldName = row[4];
+			const fieldValue = row[5];
+			const scope = row[6];
+			const migrateToOption = row[7];
 
-			if (migrateToOption == migrateTo.config && mappingType == 'fields') {
-				mappings.fields.configTag.push(buildMapObject(fieldName, fieldValue));
-			} else if (migrateToOption == migrateTo.allEvents 
-				&& mappingType == 'fields') {
-				mappings.fields.allEventTags
-					.push(buildMapObject(fieldName, fieldValue));
-			} else if (migrateToOption == migrateTo.singleEvent 
-				&& mappingType == 'fields') {
-				if (entityIds.indexOf(entityId) != -1) {
-					mappings.fields.singleEventTags[entityIds.indexOf(entityId)]
-					.mappings.push(buildMapObject(fieldName, fieldValue));
-				} else {
-					entityIds.push(entityId);
-					mappings.fields.singleEventTags
-					.push({
-						entityId: entityId,
-						mappings: [buildMapObject(fieldName, fieldValue)]
-					});
-				}
-			} else if (migrateToOption == migrateTo.config && mappingType == 'cds') {
+			if (migrateToOption == migrateTo.config) {
 				mappings.customDefinitions.configTag[scope]
 				.push(buildMapObject(fieldName, fieldValue));
-			} else if (migrateToOption == migrateTo.allEvents 
-				&& mappingType == 'cds') {
+			} else if (migrateToOption == migrateTo.allEvents) {
 				mappings.customDefinitions.allEventTags[scope]
 				.push(buildMapObject(fieldName, fieldValue));
-			} else if (migrateToOption == migrateTo.singleEvent 
-				&& mappingType == 'cds') {
+			} else if (migrateToOption == migrateTo.singleEvent) {
 				if (entityIds.indexOf(entityId) != -1) {
 					mappings.customDefinitions
 					.singleEventTags[entityIds.indexOf(entityId)][scope]
@@ -552,8 +567,9 @@ function cdList(entity) {
               tempArray[2] = map.getValue();
             } else if (
                 map.getKey() == 'dimension' || map.getKey() == 'metric') {
-              tempArray[3] = map.getValue();
-              tempArray[4] = map.getKey();
+              tempArray[3] = map.getKey();
+              tempArray[4] = '';
+              tempArray[5] = map.getValue();
             }
           });
           definitions.push(tempArray);
@@ -739,7 +755,7 @@ function pmWriteUAPageviewToSheet() {
  * Returns an array containing tags, tag Ids, and tag names.
  * @param {!Object} sheet Sheet where the pageview tag IDs and names exist.
  * @param {!Object} range Sheet range for the pageview tags IDs and names.
- * @param {string} workflow Either pageview or event migration.
+ * @param {string} migrationType Either pageview or event migration.
  * @param {string} tagType The kind of pageview that will be returned.
  * @return {!Array<?Object>}
  */
@@ -759,9 +775,9 @@ function getTagsFromSheet(sheet, range, migrationType, tagType) {
 	tags.forEach(tag => {
 		const tagIdIndex = tagIds.indexOf(parseInt(tag.getTagId()));
 		if (migrationType == 'pageview' && tagIdIndex != -1) {
-			if (rows[tagIdIndex][2] == tagType || tagType == 'all') {
+			if (rows[tagIdIndex][3] == tagType || tagType == 'all') {
 				tagData.push({
-					tagName: rows[tagIdIndex][0],
+					tagName: rows[tagIdIndex][2],
 					id: rows[tagIdIndex][1], 
 					tag: tag
 				});
@@ -769,10 +785,11 @@ function getTagsFromSheet(sheet, range, migrationType, tagType) {
 		} else if (migrationType == 'event' && tagIdIndex != -1) {
 			if (rows[tagIdIndex][4]) {
 				tagData.push({
+          id: rows[tagIdIndex][1], 
 					tagName: rows[tagIdIndex][2],
-					id: rows[tagIdIndex][1], 
-					tag: tag,
-					configTag: rows[tagIdIndex][3]
+					eventName: rows[tagIdIndex][3],
+          configTag: rows[tagIdIndex][4],
+					tag: tag
 				});
 			}
 		}
@@ -808,7 +825,7 @@ function migratePageviewTag(
 			customDefinitionMappings.configTag.parameter)
 
     skeletonPageviewTag.type = 'gaawc';
-    skeletonPageviewTag.name = tag.tagName + tagSuffix;
+    skeletonPageviewTag.name = tag.tagName;
 	  skeletonPageviewTag.parameter.push({
 			key: 'userProperties',
 			type: 'list',
@@ -831,7 +848,7 @@ function migratePageviewTag(
     );
 		// Set the tag type to GA4's event type.
     skeletonPageviewTag.type = analyticsVersion.ga4Event;
-    skeletonPageviewTag.name = tag.tagName + tagSuffix;
+    skeletonPageviewTag.name = tag.tagName;
 		// Set the event name to page_view.
     skeletonPageviewTag.parameter.push({
 			key: 'eventName', 
@@ -887,18 +904,14 @@ function migratePageviewTag(
  * Kicks off the pageview tag migration for the config tag.
  */
 function migrateConfigTag() {
-	const customDefinitionMappings = getMappingsFromSheet(
+	const customDefinitionMappings = getCustomDefinitionMappings(
 		pageviewMigrationSheet,
-		pageviewRanges.customDefinitions.read,
-		'pageview',
-		'cds'
+		pageviewRanges.customDefinitions.read
 	).customDefinitions;
 
-	const fieldMappings = getMappingsFromSheet(
+	const fieldMappings = getFieldMappings(
 		pageviewMigrationSheet,
-		pageviewRanges.fields.read,
-		'pageview',
-		'fields'
+		pageviewRanges.fields.read
 	).fields;	
 	
   const tags = getTagsFromSheet(
@@ -917,19 +930,15 @@ function migrateConfigTag() {
  * Kicks off the migration of the pageview event tags.
  */
 function migratePageviewEventTags() {
-	const customDefinitionMappings = getMappingsFromSheet(
+	const customDefinitionMappings = getCustomDefinitionMappings(
 		pageviewMigrationSheet,
-		pageviewRanges.customDefinitions.read,
-		'pageview',
-		'cds'
+		pageviewRanges.customDefinitions.read
 	).customDefinitions;
 
-	const fieldMappings = getMappingsFromSheet(
+	const fieldMappings = getFieldMappings(
 		pageviewMigrationSheet,
-		pageviewRanges.fields.read,
-		'pageview',
-		'fields'
-	).fields;			
+		pageviewRanges.fields.read
+  ).fields;			
 
   const tags = getTagsFromSheet(
       pageviewMigrationSheet, pageviewRanges.uaPageviewTags.read, 'pageview', 'Event Tag'
@@ -983,7 +992,7 @@ const eventRanges = {
       row: 2,
       column: 1,
       numRows: eventMigrationSheet.getLastRow(),
-      numColumns: 5
+      numColumns: 6
     }
   },
   // GA4 config tag ranges for the validation sheet.
@@ -1005,13 +1014,13 @@ const eventRanges = {
   customDefinitions: {
     write: {
       row: 2,
-      column: 7,
+      column: 8,
       numRows: eventMigrationSheet.getLastRow(),
-      numColumns: 5
+      numColumns: 6
     },
     read: {
       row: 2,
-      column: 7,
+      column: 8,
       numRows: eventMigrationSheet.getLastRow(),
       numColumns: 8
     }
@@ -1084,13 +1093,13 @@ function migrateEventTag(tag, customDefinitionMappings) {
 	
 	// Set the tag type to GA4's event type.
   skeletonEventTag.type = analyticsVersion.ga4Event;
-  skeletonEventTag.name = tag.tagName + tagSuffix;
+  skeletonEventTag.name = tag.tagName;
 	
 	// Set the event name to page_view.
   skeletonEventTag.parameter.push({
 		key: 'eventName', 
 		type: 'template', 
-		value: tag.tagName
+		value: tag.eventName
 	});
 	// Set the config tag for the event.
   skeletonEventTag.parameter.push({
@@ -1144,11 +1153,9 @@ function migrateEventTag(tag, customDefinitionMappings) {
  * Kicks off the migration of the event tags.
  */
 function migrateEventTags() {
-	const customDefinitionMappings = getMappingsFromSheet(
+	const customDefinitionMappings = getCustomDefinitionMappings(
 		eventMigrationSheet,
-		eventRanges.customDefinitions.read,
-		'event',
-		'cds'
+		eventRanges.customDefinitions.read
 	).customDefinitions;	
 
   const tags = getTagsFromSheet(
