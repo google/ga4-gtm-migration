@@ -126,6 +126,9 @@ const pageviewRanges = {
   }
 }
 
+// The delay in milliseconds between each write request to the GTM API.
+const writeDelay = 500;
+
 // Entity types as defined by the GTM API.
 const analyticsVersion = {
 	ga4Config: 'gaawc',
@@ -534,8 +537,8 @@ function avGetIds(sheet, range, type) {
  * Writes custom definitions to a sheet.
  * @param {!Object} sheet The sheet the information will be written to.
  * @param {!Object} range The sheet range for the data to be written.
- * @param {!Array<!Array<string>>} A double array listing the custom definitions
- * to be written to the sheet.
+ * @param {!Array<!Array<string>>} customDefinitions A double array listing the
+ * custom definitions to be written to the sheet.
  */
 function cdWriteToSheet(sheet, range, customDefinitions) {
   range.numRows = customDefinitions.length;
@@ -657,8 +660,8 @@ function fieldsList(entity) {
  * Writes the fields names and values to the sheet.
  * @param {!Object} sheet
  * @param {!Array<?Array<string>>} fields The fields to be written to the sheet.
- * @param {!Object<number>} clearRange The range of values to clear.
- * @param {!Object<number>} contentRange The range of values that will be
+ * @param {!Object} clearRange The range of values to clear.
+ * @param {!Object} contentRange The range of values that will be
  * written to the sheet.
  */
 function fieldsWriteToSheet(sheet, fields, clearRange, contentRange) {
@@ -923,7 +926,7 @@ function migrateConfigTag() {
     migratePageviewTag(
 			tag, 'Config Tag', customDefinitionMappings, fieldMappings
 		);
-		Utilities.sleep(200);
+		Utilities.sleep(writeDelay);
   });
 }
 
@@ -949,7 +952,7 @@ function migratePageviewEventTags() {
     migratePageviewTag(
 			tag, 'Event Tag', customDefinitionMappings, fieldMappings
 		);
-		Utilities.sleep(200);
+		Utilities.sleep(writeDelay);
   });
 }
 
@@ -959,8 +962,8 @@ function migratePageviewEventTags() {
  * Adds a row to the changelog sheet to create a record of the modification that
  * was made.
  * @param {string} entityName The name of what was changed.
- * @param {string} The type (trigger, tag, variable, etc.) that was changed.
- * @param {number} The ID of the entity that was chagned
+ * @param {string} entityType The type (trigger, tag, variable, etc.) that was changed.
+ * @param {number} entityId The ID of the entity that was chagned
  * @param {string} actionTaken A brief description of how something was changed.
  * @param {string} gtmURL The URL for the entity that was changed.
  */
@@ -1168,8 +1171,8 @@ function getSelectedEventTagData(tagObjects, selectedSheetRows) {
  * Writes event category, action, and label data to a sheet.
  * @param {!Object} sheet The sheet the information will be written to.
  * @param {!Object} range The sheet range for the data to be written.
- * @param {!Array<!Array<string>>} A double array listing the event data to be
- * written to the sheet.
+ * @param {!Array<!Array<string>>} eventData A double array listing the event 
+ * data to be written to the sheet.
  */
 function eventDataWriteToSheet(sheet, range, eventData) {
   range.numRows = eventData.length;
@@ -1337,6 +1340,6 @@ function migrateEventTags() {
 	
   tags.forEach(tag => {
 		migrateEventTag(tag, customDefinitionMappings, eventDataMappings);
-		Utilities.sleep(200);
+		Utilities.sleep(writeDelay);
 	});
 }
