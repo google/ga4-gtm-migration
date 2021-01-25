@@ -340,7 +340,7 @@ function buildMapObject (name, value) {
 	return {
 		map: [
 			{value: name, type: 'template', key: 'name'},
-			{value: value, type: 'template', key: 'value'}
+			{value: value.toString(), type: 'template', key: 'value'}
 		],
 		type: 'map'
 	}
