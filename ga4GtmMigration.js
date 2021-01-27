@@ -36,6 +36,7 @@ function onOpen() {
 	
   const analyticsEventSubMenu = SpreadsheetApp.getUi()
 	.createMenu('Event Migration')
+  .addItem('List UA Settings Variables', 'emWriteUAVariableToSheet')
 	.addItem('List UA Events', 'emListUAEventTags')
   .addItem('List UA Event Data', 'emWriteUAEventDataToSheet')
 	.addItem('List Custom Definitions', 'emWriteCustomDefinitionsToSheet')
@@ -272,21 +273,72 @@ function removeEmptyRows(rows) {
 /**
  * Returns an array of universal analytics tags.
  * @param {!Array<?Object>} tags
- * @param {string} analyticsType GA4 config or event or UA
- * @param {string} tagType Either TRACK_PAGEVIEW or TRACK_EVENT
+ * @param {!Object} filterSettings An object with additional filter settings: 
+ * analyticsType - GA4 config or event or UA, tagType - GA4 config or event or
+ * UA, additionalConditions - Either sameSettingsVariable, selectedTags, or none
  * @return {?Array<?Object>}
  */
-function filterTags(tags, analyticsType, tagType) {
+function filterTags(tags, filterSettings) {
   let filteredTags = [];
+  const sheet = ss.getActiveSheet();
+  let selectedSettingsVariableName = '';
+  let tagIds = []
+  if (filterSettings.tagType == 'TRACK_PAGEVIEW') {
+    selectedSettingsVariableName = '{{' + 
+    sheet.getRange(
+      pageviewRanges.settingsVariable.read.row,
+      pageviewRanges.settingsVariable.read.column,
+      pageviewRanges.settingsVariable.read.numRows,
+      pageviewRanges.settingsVariable.read.numColumns)
+    .getValues().find(row => row[row.length - 1] == true)[0] +  '}}';
+    tagIds = sheet.getRange(
+      pageviewRanges.uaPageviewTags.read.row,
+      pageviewRanges.uaPageviewTags.read.column,
+      pageviewRanges.uaPageviewTags.read.numRows,
+      pageviewRanges.uaPageviewTags.read.numColumns)
+    .getValues().filter(row => {
+      if (row[row.length - 1] !== 'Do Not Migrate' &&
+      row[row.length - 1] !== '') {
+        return row;
+      }
+    }).map(row => row[1]);
+  } else if (filterSettings.tagType == 'TRACK_EVENT') {
+    selectedSettingsVariableName = '{{' + 
+    sheet.getRange(
+      eventRanges.settingsVariable.read.row,
+      eventRanges.settingsVariable.read.column,
+      eventRanges.settingsVariable.read.numRows,
+      eventRanges.settingsVariable.read.numColumns)
+    .getValues().find(row => row[row.length - 1] == true)[0] +  '}}';
+    tagIds = sheet.getRange(
+    eventRanges.eventTags.read.row,
+    eventRanges.eventTags.read.column,
+    eventRanges.eventTags.read.numRows,
+    eventRanges.eventTags.read.numColumns)
+    .getValues().filter(row => row[row.length - 1] == true)
+    .map(row => row[1]);
+  }
+
   tags.forEach(tag => {
-    if (tag.type == analyticsType) {
-      if (analyticsType == analyticsVersion.ua) {
+    if (tag.type == filterSettings.analyticsType) {
+      if (filterSettings.analyticsType == analyticsVersion.ua) {
+        const gaSettingsParam = tag.parameter.find(param => param.key == 'gaSettings');
         tag.parameter.forEach(param => {
           if (param.key == paramKeyValues.trackType) {
-            if (param.value == tagType) {
-              filteredTags.push(tag);
-            } else if (param.value == tagType) {
-							filteredTags.push(tag);
+            if (param.value == filterSettings.tagType) {
+              if (filterSettings.additionalConditions == 'sameSettingsVariable') {
+                if (gaSettingsParam != undefined) {
+                  if (gaSettingsParam.value == selectedSettingsVariableName) {
+                    filteredTags.push(tag);
+                  } 
+                }
+              } else if (filterSettings.additionalConditions == 'selectedTags') {
+                if (tagIds.indexOf(parseInt(tag.getTagId())) != -1) { 
+                  filteredTags.push(tag);
+                }
+              } else if (filterSettings.additionalConditions == 'none') {
+                filteredTags.push(tag);
+              }
             }
           }
         });
@@ -521,13 +573,21 @@ function avGetIds(sheet, range, type) {
 	const rows = sheet.getRange(range.row, range.column, range.numRows,
 		range.numColumns).getValues();
 	let id = null;
-  rows.forEach(row => {
-    if (row[4] && type == 'UA') {
-      id = row[2];
-    } else if (row[4] && type == 'GA4') {
-    	id = row[3];
-    }
-  });
+  if (sheet.getName() == 'Pageview Migration') {
+    rows.forEach(row => {
+      if (row[4] && type == 'UA') {
+        id = row[2];
+      } else if (row[4] && type == 'GA4') {
+        id = row[3];
+      }
+    });
+  } else if (sheet.getName() == 'Event Migration') {
+    rows.forEach(row => {
+      if (row[3] && type == 'UA') {
+        id = row[2];
+      }
+    });
+  }
   return id;
 }
 
@@ -537,10 +597,39 @@ function avGetIds(sheet, range, type) {
  * Writes custom definitions to a sheet.
  * @param {!Object} sheet The sheet the information will be written to.
  * @param {!Object} range The sheet range for the data to be written.
- * @param {!Array<!Array<string>>} customDefinitions A double array listing the
+ * @param {string} type Either TRACK_PAGEVIEW or TRACK_EVENT
  * custom definitions to be written to the sheet.
  */
-function cdWriteToSheet(sheet, range, customDefinitions) {
+function cdWriteToSheet(sheet, range, type) {
+  let customDefinitions = [];
+	let analyticsVariableId = null;
+
+  if (type == 'TRACK_PAGEVIEW') {
+    analyticsVariableId = avGetIds(
+      sheet, pageviewRanges.settingsVariable.read, 'UA'
+    );
+  } else if (type == 'TRACK_EVENT') {
+    analyticsVariableId = avGetIds(
+      sheet, eventRanges.settingsVariable.read, 'UA'
+    );
+  }
+	const analyticsVariable = getVariable(analyticsVariableId);
+	
+	customDefinitions = customDefinitions.concat(cdList(analyticsVariable));
+
+  const tags = filterTags(
+		listTags(),
+    {
+      analyticsType: analyticsVersion.ua,
+      tagType: type,
+      additionalConditions: 'selectedTags'
+    }
+	);
+
+  tags.forEach(tag => {
+    customDefinitions = customDefinitions.concat(cdList(tag));
+  });
+      
   range.numRows = customDefinitions.length;
   if (customDefinitions.length > 0) {
     sheet
@@ -703,8 +792,11 @@ function pmWriteFieldsToSheet() {
 
   const pageviewTags = filterTags(
 		listTags(),
-		analyticsVersion.ua,
-		uaTagType.pageview
+    {
+      analyticsType: analyticsVersion.ua,
+      tagType: uaTagType.pageview,
+      additionalConditions: 'selectedTags'
+    }
 	);
 	
   pageviewTags.forEach(tag => {
@@ -717,27 +809,11 @@ function pmWriteFieldsToSheet() {
 
 /**
  * Writes the custom definitions in the selected analytics settings variable and
- * all pageviews to the pageview migration sheet.
+ * pageview tags to the pageview migration sheet.
  */
 function pmWriteCustomDefinitionsToSheet() {
-  let customDefinitions = [];
-	
-	const analyticsVariableId = avGetIds(
-		pageviewMigrationSheet, pageviewRanges.settingsVariable.read, 'UA'
-	);
-	const analyticsVariable = getVariable(analyticsVariableId);
-	
-	customDefinitions = customDefinitions.concat(cdList(analyticsVariable));
-
-  const pageviewTags = filterTags(
-		listTags(), analyticsVersion.ua, uaTagType.pageview
-	);
-  pageviewTags.forEach(tag => {
-    customDefinitions = customDefinitions.concat(cdList(tag));
-  });
-
   cdWriteToSheet(
-      pageviewMigrationSheet, pageviewRanges.customDefinitions.write, customDefinitions);
+    pageviewMigrationSheet, pageviewRanges.customDefinitions.write, uaTagType.pageview);
 }
 
 /**
@@ -746,7 +822,11 @@ function pmWriteCustomDefinitionsToSheet() {
 function pmWriteUAPageviewToSheet() {
   const tags = listTags();
   const pageviewTags = listTagNamesAndIds(
-		filterTags(tags, analyticsVersion.ua, uaTagType.pageview)
+    filterTags(tags, {
+      analyticsType: analyticsVersion.ua,
+      tagType: uaTagType.pageview,
+      additionalConditions: 'sameSettingsVariable'
+    })
 	);
   if (pageviewTags.length) {
     pageviewMigrationSheet
@@ -988,13 +1068,13 @@ const eventRanges = {
   eventTags: {
     write: {
       row: 2,
-      column: 1,
+      column: 6,
       numRows: eventMigrationSheet.getLastRow(),
       numColumns: 2
     },
     read: {
       row: 2,
-      column: 1,
+      column: 6,
       numRows: eventMigrationSheet.getLastRow(),
       numColumns: 6
     }
@@ -1003,13 +1083,13 @@ const eventRanges = {
   configTags: {
     write: {
       row: 2,
-      column: 5,
+      column: 10,
       numRows: validationSheet.getLastRow(),
       numColumns: 2
     },
     read: {
       row: 2,
-      column: 5,
+      column: 10,
       numRows: validationSheet.getLastRow(),
       numColumns: 2
     }
@@ -1018,13 +1098,13 @@ const eventRanges = {
   customDefinitions: {
     write: {
       row: 2,
-      column: 16,
+      column: 21,
       numRows: eventMigrationSheet.getLastRow(),
       numColumns: 6
     },
     read: {
       row: 2,
-      column: 16,
+      column: 21,
       numRows: eventMigrationSheet.getLastRow(),
       numColumns: 8
     }
@@ -1033,15 +1113,29 @@ const eventRanges = {
   eventData: {
     write: {
       row: 2,
-      column: 8,
+      column: 13,
       numRows: eventMigrationSheet.getLastRow(),
       numColumns: 5
     },
     read: {
       row: 2,
-      column: 8,
+      column: 13,
       numRows: eventMigrationSheet.getLastRow(),
       numColumns: 7
+    }
+  },
+  settingsVariable: {
+    write: {
+      row: 2,
+      column: 1,
+      numRows: eventMigrationSheet.getLastRow(),
+      numColumns: 3
+    },
+    read: {
+      row: 2,
+      column: 1,
+      numRows: eventMigrationSheet.getLastRow(),
+      numColumns: 4
     }
   }
 }
@@ -1053,7 +1147,12 @@ const eventRanges = {
  * @param {!Object} range The write range for the sheet.
  */
 function emWriteTagsToSheet(sheet, range, gaVersion, uaType) {
-	const tags = listTagNamesAndIds(filterTags(listTags(), gaVersion, uaType));
+  const filterSettings = {
+    analyticsType: gaVersion,
+    tagType: uaType,
+    additionalConditions: 'sameSettingsVariable'
+  };
+	const tags = listTagNamesAndIds(filterTags(listTags(), filterSettings));
 	sheet.getRange(
 		range.row, range.column, sheet.getLastRow(), range.numColumns
 	).clear();
@@ -1086,18 +1185,8 @@ function emListUAEventTags() {
  * the event migration sheet.
  */
 function emWriteCustomDefinitionsToSheet() {
-	let customDefinitions = [];
-	
-  const eventTags = filterTags(
-		listTags(), analyticsVersion.ua, uaTagType.event
-	);
-  eventTags.forEach(tag => {
-    customDefinitions = customDefinitions.concat(cdList(tag));
-  });
-
   cdWriteToSheet(
-      eventMigrationSheet, eventRanges.customDefinitions.write, customDefinitions
-	);
+    eventMigrationSheet, eventRanges.customDefinitions.write, uaTagType.event);
 }
 
 /**
@@ -1133,38 +1222,18 @@ function uaEventDataList(entity) {
  */
 function emWriteUAEventDataToSheet() {
 	let eventData = [];
-  const allEventTags = filterTags(
-		listTags(), analyticsVersion.ua, uaTagType.event
-	);
-  const tagsFromSheet = getTagsFromSheet(
-		eventMigrationSheet, eventRanges.eventTags.read, 'event', ''
-	);
-  const selectedEventTags = getSelectedEventTagData(allEventTags, tagsFromSheet);
-  selectedEventTags.forEach(tag => {
+  const filterSettings = {
+    analyticsType: analyticsVersion.ua,
+    tagType: uaTagType.event,
+    additionalConditions: 'selectedTags'
+  }
+  const eventTags = filterTags(listTags(), filterSettings);
+  eventTags.forEach(tag => {
     eventData = eventData.concat(uaEventDataList(tag));
   });
   eventDataWriteToSheet(
       eventMigrationSheet, eventRanges.eventData.write, eventData
 	);
-}
-
-/**
- * Retrieves the tag object data for the selected event tags.
- * @param {!Array<!Object>} tagObjects An array of all tag objects from the workspace.
- * @param {!Array<?Object>} selectedSheetRows The rows of selected event tags from
- * the event migration sheet.
- * @return {!Array<?Objec>} An array of selected tag objects.
- */
-function getSelectedEventTagData(tagObjects, selectedSheetRows) {
-  const selectedTags = [];
-  selectedSheetRows.forEach(row => {
-    tagObjects.forEach(tag => {
-      if (tag.tagId == row.id) {
-        selectedTags.push(tag);
-      }
-    });
-  });
-  return selectedTags;
 }
 
 /**
@@ -1241,7 +1310,14 @@ function getEventDataMappings(sheet, range) {
     });
   }
 	return mappings;
-} 
+}
+
+/**
+ * Writes the UA variables in a workspace to the event migration sheet.
+ */
+function emWriteUAVariableToSheet() {
+  avWriteToSheet(eventMigrationSheet, eventRanges.settingsVariable.write);
+}
 
 /**
  * Creates a new GA4 tag basd on the original UA event.
