@@ -128,7 +128,7 @@ const pageviewRanges = {
 }
 
 // The delay in milliseconds between each write request to the GTM API.
-const writeDelay = 500;
+const writeDelay = 4000;
 
 // Entity types as defined by the GTM API.
 const analyticsVersion = {
@@ -200,6 +200,24 @@ function authorization() {
   Session.getActiveUser().getEmail();
   TagManager.Accounts.list();
   SpreadsheetApp.getActive();
+}
+
+/**
+ * Checks if any tag names entered by the user are the same as existing
+ * tag names. If a duplicate is found, ' - GA4' is added to the end of the
+ * new tag's name to avoid a duplicate name error when creating the new tag.
+ * @param {string} tagName
+ * @return {string}
+ */
+function checkForDuplicateTagName(tagName) {
+  const tags = listTags();
+  tags.forEach(tag => {
+    if (tagName == tag.getName()) {
+      tagName = tagName + ' - GA4';
+      return tagName;
+    }
+  });
+  return tagName;
 }
 
 /**
@@ -909,7 +927,7 @@ function migratePageviewTag(
 			customDefinitionMappings.configTag.parameter)
 
     skeletonPageviewTag.type = 'gaawc';
-    skeletonPageviewTag.name = tag.tagName;
+    skeletonPageviewTag.name = checkForDuplicateTagName(tag.tagName);
 	  skeletonPageviewTag.parameter.push({
 			key: 'userProperties',
 			type: 'list',
@@ -1332,7 +1350,7 @@ function migrateEventTag(tag, customDefinitionMappings, eventDataMappings) {
 	
 	// Set the tag type to GA4's event type.
   skeletonEventTag.type = analyticsVersion.ga4Event;
-  skeletonEventTag.name = tag.tagName;
+  skeletonEventTag.name = checkForDuplicateTagName(tag.tagName);
 	
 	// Set the event name to page_view.
   skeletonEventTag.parameter.push({
