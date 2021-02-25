@@ -735,6 +735,42 @@ function validCustomData(sheet, range) {
   }
 }
 
+function measurementConsentCheck() {
+  let consented = settingsSheet.getRange('B2').getValue();
+  if (consented != true && consented != false) {
+    const response = ui.alert('Can we measure your useage of the tool in order to ' +
+    'better understand how the tool is used and inform future development of this tool?', ui.ButtonSet.YES_NO);
+    if (response == ui.Button.YES) {
+      settingsSheet.getRange('B2').setValue(true);
+      consented = true;
+    } else if (response == ui.Button.NO) {
+      settingsSheet.getRange('B2').setValue(false);
+      consented = false;
+    }
+  }
+  return consented;
+}
+
+function sendGAHit(data) {
+  if (measurementConsentCheck()) {
+    const endpoint = 'https://www.google-analytics.com/collect';
+    const payload = {
+      'v': '1',
+      't': 'event',
+      'tid': 'UA-188567387-1',
+      'cid': ss.getId(),
+      'ec': data.category,
+      'ea': data.action,
+      'el': data.label
+    };
+    const options = {
+      'method': 'post',
+      'payload': payload
+    };
+    UrlFetchApp.fetch(endpoint, options);
+  }
+}
+
 // Functions related to the UA settings variable and the GA4 measurement ID
 
 /**
@@ -1207,7 +1243,14 @@ function migratePageviewTag(
   const newPageviewTag =
       TagManager.Accounts.Containers.Workspaces.Tags.create(
           skeletonPageviewTag, gtmPath);
-					
+
+  const gaData = {
+    category: 'Tag Created',
+    action: tagType,
+    label: newPageviewTag.containerId
+  };
+  sendGAHit(gaData);
+
   logChange(
       newPageviewTag.name, newPageviewTag.type, newPageviewTag.tagId, 'Created',
       newPageviewTag.tagManagerUrl);
@@ -1527,6 +1570,13 @@ function migrateEventTag(tag, customDefinitionMappings, eventDataMappings) {
 	const newEventTag = TagManager.Accounts.Containers.Workspaces.Tags
 	.create(skeletonEventTag, gtmPath);
 
+  const gaData = {
+    category: 'Tag Created',
+    action: 'Event Tag',
+    label: newEventTag.containerId
+  };
+  sendGAHit(gaData);
+	
 	logChange(
 		newEventTag.name,
 		newEventTag.type,
