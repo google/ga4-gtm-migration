@@ -32,6 +32,7 @@ const settingsSheet = ss.getSheetByName('Settings');
 
 const gtmUrl = gtmUrlSheet.getRange('B1').getValue();
 const gtmPath = gtmUrl.split('#/container/')[1];
+const version = '1.01';
 
 /**
  * Builds the menu.
@@ -521,10 +522,10 @@ function getFieldMappings(sheet, range) {
 		const entityIds = [];
 		
     filteredRows.forEach(row => {
-			const entityId = row[0];
-			const fieldName = row[1];
-			const fieldValue = row[2];
-			const migrateToOption = row[3]
+			const entityId = row[1];
+			const fieldName = row[2];
+			const fieldValue = row[3];
+			const migrateToOption = row[4]
 			
 			if (migrateToOption == migrateTo.config) {
 				mappings.fields.configTag.push(buildMapObject(fieldName, fieldValue));
