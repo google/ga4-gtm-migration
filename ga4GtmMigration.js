@@ -64,7 +64,32 @@ function onOpen() {
 	.addSeparator()
 	.addItem('Authorize Permissions', 'authorization')
   .addToUi();
+	checkVersion();
 }
+
+/**
+ * Checks if this is the latest version of the script and sheet.
+ * If not, it prompts the user to create a new copy of the sheet
+ * from Github.
+ */
+function checkVersion() {
+  const githubCodeText = UrlFetchApp.fetch('https://raw.githubusercontent.com/google/ga4-gtm-migration/master/ga4GtmMigration.js').getContentText();
+  const versionRegex = new RegExp('version = ' + 
+	version.split('.').join('\\.'));
+  if (!versionRegex.test(githubCodeText) && 
+	!settingsSheet.getRange('B4').getValue()) {
+    const response = ui.alert(
+			'There is a new version of this tool available at ' + 
+			'https://github.com/google/ga4-gtm-migration. Please use the latest ' + 
+			'version of the tool by using the files on Github or making a copy of ' +
+			'this spreadsheet: ' +
+			'https://docs.google.com/spreadsheets/d/1wpmw7kkHpHzPIDC-mJS3BkSqGqf46W7E5UYpYTFilEc/')
+    if (response == ui.Button.OK || response == ui.Button.CLOSE) {
+      settingsSheet.getRange('B4').setValue(true);
+    }
+  }
+}
+
 
 // Pageview migration sheet ranges.
 const pageviewRanges = {
