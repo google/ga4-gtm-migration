@@ -75,8 +75,7 @@ function onOpen() {
  */
 function checkVersion() {
   const githubCodeText = UrlFetchApp.fetch('https://raw.githubusercontent.com/google/ga4-gtm-migration/master/ga4GtmMigration.js').getContentText();
-  const versionRegex = new RegExp('version = ' + 
-	version.split('.').join('\\.'));
+  const versionRegex = new RegExp("version = '" + version + "'");
   if (!versionRegex.test(githubCodeText) && 
 	!settingsSheet.getRange('B4').getValue()) {
     const response = ui.alert(
@@ -1058,6 +1057,8 @@ function fieldsWriteToSheet(sheet, fields, clearRange, contentRange) {
  * Writes the UA variables in a workspace to the pageview migration sheet.
  */
 function pmWriteUAVariableToSheet() {
+  checkVersion();
+	measurementConsentCheck();
   avWriteToSheet(pageviewMigrationSheet, pageviewRanges.settingsVariable.write);
 }
 
@@ -1433,6 +1434,8 @@ function uaEventDataList(entity) {
  * Writes UA event category, action, and label data to the event migration sheet.
  */
 function emWriteUAEventDataToSheet() {
+  checkVersion();
+	measurementConsentCheck();
   if (validConfigTag(eventMigrationSheet, eventRanges.eventTags.read)) {
     let eventData = [];
     const filterSettings = {
