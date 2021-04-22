@@ -32,7 +32,7 @@ const settingsSheet = ss.getSheetByName('Settings');
 
 const gtmUrl = gtmUrlSheet.getRange('B1').getValue();
 const gtmPath = gtmUrl.split('#/container/')[1];
-const version = '1.01';
+const version = '1.02';
 
 /**
  * Builds the menu.
@@ -65,6 +65,7 @@ function onOpen() {
 	.addItem('Authorize Permissions', 'authorization')
   .addToUi();
 	checkVersion();
+	measurementConsentCheck();
 }
 
 /**
@@ -764,7 +765,7 @@ function validCustomData(sheet, range) {
 function measurementConsentCheck() {
   let consented = settingsSheet.getRange('B2').getValue();
   if (consented != true && consented != false) {
-    const response = ui.alert('Can we measure your useage of the tool in order to ' +
+    const response = ui.alert('Can we measure your useage of this tool to ' +
     'better understand how the tool is used and inform future development of this tool?', ui.ButtonSet.YES_NO);
     if (response == ui.Button.YES) {
       settingsSheet.getRange('B2').setValue(true);
@@ -1032,19 +1033,23 @@ function fieldsList(entity) {
  * written to the sheet.
  */
 function fieldsWriteToSheet(sheet, fields, clearRange, contentRange) {
-  const snakeCaseFieldNames = convertToSnakeCase(fields);
-  contentRange.numRows = snakeCaseFieldNames.length;
-  contentRange.numColumns = 4;
-  sheet
-      .getRange(
-          clearRange.row, clearRange.column, clearRange.numRows,
-          clearRange.numColumns)
-      .clearContent();
-  sheet
-      .getRange(
-          contentRange.row, contentRange.column, contentRange.numRows,
-          contentRange.numColumns)
-      .setValues(snakeCaseFieldNames);
+	if (fields.length > 0) {
+  	const snakeCaseFieldNames = convertToSnakeCase(fields);
+  	contentRange.numRows = snakeCaseFieldNames.length;
+  	contentRange.numColumns = 4;
+  	sheet.getRange(
+			clearRange.row,
+			clearRange.column,
+			clearRange.numRows,
+			clearRange.numColumns)
+			.clearContent();
+		sheet.getRange(
+			contentRange.row,
+			contentRange.column,
+			contentRange.numRows,
+			contentRange.numColumns)
+	  .setValues(snakeCaseFieldNames);
+	}
 }
 
 // Pageview migration functions
@@ -1083,7 +1088,7 @@ function pmWriteFieldsToSheet() {
     pageviewTags.forEach(tag => {
       fields = fields.concat(fieldsList(tag));
     });
-
+		
     fieldsWriteToSheet(
         pageviewMigrationSheet, fields, pageviewRanges.fields.write, pageviewRanges.fields.write);
   }
