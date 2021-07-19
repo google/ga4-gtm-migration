@@ -29,10 +29,12 @@ const pageviewMigrationSheet = ss.getSheetByName('Pageview Migration');
 const eventMigrationSheet = ss.getSheetByName('Event Migration');
 const validationSheet = ss.getSheetByName('Validation Settings');
 const settingsSheet = ss.getSheetByName('Settings');
+const cache = CacheService.getScriptCache();
+const cacheTimeout = 300;
+const version = '1.1';
 
 const gtmUrl = gtmUrlSheet.getRange('B1').getValue();
 const gtmPath = gtmUrl.split('#/container/')[1];
-const version = '1.02';
 
 /**
  * Builds the menu.
@@ -64,8 +66,8 @@ function onOpen() {
 	.addSeparator()
 	.addItem('Authorize Permissions', 'authorization')
   .addToUi();
-	checkVersion();
-	measurementConsentCheck();
+  checkVersion();
+  measurementConsentCheck();
 }
 
 /**
@@ -75,8 +77,7 @@ function onOpen() {
  */
 function checkVersion() {
   const githubCodeText = UrlFetchApp.fetch('https://raw.githubusercontent.com/google/ga4-gtm-migration/master/ga4GtmMigration.js').getContentText();
-  const versionRegex = new RegExp('version = ' + 
-	version.split('.').join('\\.'));
+  const versionRegex = new RegExp("version = '" + version + "'");
   if (!versionRegex.test(githubCodeText) && 
 	!settingsSheet.getRange('B4').getValue()) {
     const response = ui.alert(
@@ -90,7 +91,6 @@ function checkVersion() {
     }
   }
 }
-
 
 // Pageview migration sheet ranges.
 const pageviewRanges = {
@@ -263,20 +263,63 @@ const migrateTo = {
 }
 
 /**
+ * Checks if the chached gtmPath variable is the same as the current
+ * value in the spreadsheet and returns whether or not that is true
+ * and the current path in the spreadsheet.
+ * @retun {!Object<boolean, string>} An object that contains data about
+ * whether or not the GTM path changed and the path itself. 
+ */
+function getGtmPathData() {
+  let path = cache.get('gtmPath');
+  if (path == gtmPath) {
+    return {
+      changed: false,
+      path: path
+    };
+  } else {
+    path = gtmPath;
+    cache.put('gtmPath', path, cacheTimeout);
+    return {
+      changed: true,
+      path: path
+    };
+  }
+};
+
+/**
  * Makes an API call to retrieve a list of variables in a GTM container.
+ * Returns a cached object if the same variables are requested from a the
+ * same container within five minutes.
  * @return {?Object} The API response.
  */
 function listVariables() {
-  return TagManager.Accounts.Containers.Workspaces.Variables.list(gtmPath)
-      .variable;
+  const cached = cache.get('variables');
+  const pathData = getGtmPathData();
+  if (cached != null && !pathData.changed) {
+    return JSON.parse(cached);
+  } else {
+    const data = TagManager.Accounts.Containers.Workspaces.Variables.list(pathData.path).variable;
+    cache.put('variables', JSON.stringify(data), cacheTimeout);
+    return JSON.parse(JSON.stringify(data));
+  }
 }
 
 /**
  * Makes an API call to retrieve a list of tags in a GTM container.
+ * Returns a cached object if the same tags are requested from a the
+ * same container within five minutes.
  * @return {?Object} The API response.
  */
 function listTags() {
-  return TagManager.Accounts.Containers.Workspaces.Tags.list(gtmPath).tag;
+  const cached = cache.get('tags');
+  const pathData = getGtmPathData();
+  if (cached != null && !pathData.changed) {
+    return JSON.parse(cached);
+  } else {
+    const data = TagManager.Accounts.Containers.Workspaces.Tags.list(pathData.path).tag;
+    cache.put('tags', JSON.stringify(data), cacheTimeout);
+    return JSON.parse(JSON.stringify(data));
+  }
 }
 
 /**
@@ -285,8 +328,8 @@ function listTags() {
  * @return {?Object} A variable object.
  */
 function getVariable(id) {
-  return TagManager.Accounts.Containers.Workspaces.Variables.get(
-      gtmPath + '/variables/' + id);
+  return TagManager.Accounts.Containers.Workspaces.Variables
+    .get(gtmPath + '/variables/' + id);
 }
 
 /**
@@ -295,8 +338,8 @@ function getVariable(id) {
  * @return {?Object} A tag object.
  */
 function getTag(id) {
-  return TagManager.Accounts.Containers.Workspaces.Tags.get(
-      gtmPath + '/tags/' + id);
+  return TagManager.Accounts.Containers.Workspaces.Tags
+    .get(gtmPath + '/tags/' + id);
 }
 
 /**
@@ -318,7 +361,7 @@ function authorization() {
 function checkForDuplicateTagName(tagName) {
   const tags = listTags();
   tags.forEach(tag => {
-    if (tagName == tag.getName()) {
+    if (tagName == tag.name) {
       tagName = tagName + ' - GA4';
       return tagName;
     }
@@ -457,7 +500,7 @@ function filterTags(tags, filterSettings) {
                   } 
                 }
               } else if (filterSettings.additionalConditions == 'selectedTags') {
-                if (tagIds.indexOf(parseInt(tag.getTagId())) != -1) { 
+                if (tagIds.indexOf(parseInt(tag.tagId)) != -1) { 
                   filteredTags.push(tag);
                 }
               } else if (filterSettings.additionalConditions == 'none') {
@@ -483,9 +526,9 @@ function listTagNamesAndIds(tags) {
 	const tagNamesAndIds = [];
 	tags.forEach(tag => {
     tagNamesAndIds.push([
-			'=hyperlink("' + tag.getTagManagerUrl() + 
-			'","' + tag.getName() + '")',
-			tag.getTagId()
+			'=hyperlink("' + tag.tagManagerUrl + 
+			'","' + tag.name + '")',
+			tag.tagId
 		]);
 	})
   return tagNamesAndIds;
@@ -766,7 +809,8 @@ function measurementConsentCheck() {
   let consented = settingsSheet.getRange('B2').getValue();
   if (consented != true && consented != false) {
     const response = ui.alert('Can we measure your useage of this tool to ' +
-    'better understand how the tool is used and inform future development of this tool?', ui.ButtonSet.YES_NO);
+    'better understand how the tool is used and inform future development of ' 
+		+ ' this tool?', ui.ButtonSet.YES_NO);
     if (response == ui.Button.YES) {
       settingsSheet.getRange('B2').setValue(true);
       consented = true;
@@ -830,11 +874,11 @@ function avFilter(variables) {
       const name = variable.name;
       let trackingId = '';
       variable.parameter.forEach(param => {
-        if (param.getKey() == 'trackingId') {
-          trackingId = param.getValue();
+        if (param.key == 'trackingId') {
+          trackingId = param.value;
         }
       });
-      const variableId = variable.getVariableId();
+      const variableId = variable.variableId;
       analyticsVariables.push([name, trackingId, variableId]);
     }
   });
@@ -929,19 +973,19 @@ function cdList(entity) {
     entity.parameter.forEach(param => {
       const entityName = entity.name;
       const id = entity.variableId || entity.tagId;
-      if (param.getKey() == 'dimension' || param.getKey() == 'metric') {
-        param.getList().forEach(entity => {
+      if (param.key == 'dimension' || param.key == 'metric') {
+        param.list.forEach(entity => {
           let tempArray = [];
-          entity.getMap().forEach(map => {
-            if (map.getKey() == 'index') {
+          entity.map.forEach(map => {
+            if (map.key == 'index') {
 							tempArray[0] = entityName;
               tempArray[1] = id;
-              tempArray[2] = map.getValue();
+              tempArray[2] = map.value;
             } else if (
-                map.getKey() == 'dimension' || map.getKey() == 'metric') {
-              tempArray[3] = map.getKey();
+                map.key == 'dimension' || map.key == 'metric') {
+              tempArray[3] = map.key;
               tempArray[4] = '';
-              tempArray[5] = map.getValue();
+              tempArray[5] = map.value;
             }
           });
           definitions.push(tempArray);
@@ -1004,16 +1048,16 @@ function fieldsList(entity) {
   let fieldsToSet = [];
   if (entity.parameter != undefined) {
     entity.parameter.forEach(param => {
-      if (param.getKey() == 'fieldsToSet') {
-        param.getList().forEach(field => {
+      if (param.key == 'fieldsToSet') {
+        param.list.forEach(field => {
           let tempArray = [];
-          field.getMap().forEach(map => {
-            if (map.getKey() == 'fieldName') {
-							tempArray[0] = entity.getName();
+          field.map.forEach(map => {
+            if (map.key == 'fieldName') {
+							tempArray[0] = entity.name;
               tempArray[1] = entity.variableId || entity.tagId;
-              tempArray[2] = map.getValue();
-            } else if (map.getKey() == 'value') {
-              tempArray[3] = map.getValue();
+              tempArray[2] = map.value;
+            } else if (map.key == 'value') {
+              tempArray[3] = map.value;
             }
           });
           fieldsToSet.push(tempArray);
@@ -1058,6 +1102,8 @@ function fieldsWriteToSheet(sheet, fields, clearRange, contentRange) {
  * Writes the UA variables in a workspace to the pageview migration sheet.
  */
 function pmWriteUAVariableToSheet() {
+	checkVersion();
+	measurementConsentCheck();
   avWriteToSheet(pageviewMigrationSheet, pageviewRanges.settingsVariable.write);
 }
 
@@ -1088,7 +1134,7 @@ function pmWriteFieldsToSheet() {
     pageviewTags.forEach(tag => {
       fields = fields.concat(fieldsList(tag));
     });
-		
+
     fieldsWriteToSheet(
         pageviewMigrationSheet, fields, pageviewRanges.fields.write, pageviewRanges.fields.write);
   }
@@ -1413,15 +1459,15 @@ function uaEventDataList(entity) {
     entity.parameter.forEach(param => {
       const entityName = entity.name;
       const id = entity.variableId || entity.tagId;
-      if (param.getKey() == 'eventCategory' || 
-      param.getKey() == 'eventAction' ||
-      param.getKey() == 'eventLabel') {
+      if (param.key == 'eventCategory' || 
+      param.key == 'eventAction' ||
+      param.key == 'eventLabel') {
         eventData.push([
           entityName,
           id,
-          param.getKey(),
+          param.key,
           '',
-          param.getValue()
+          param.value
         ]);
       }
     });
@@ -1433,6 +1479,8 @@ function uaEventDataList(entity) {
  * Writes UA event category, action, and label data to the event migration sheet.
  */
 function emWriteUAEventDataToSheet() {
+	checkVersion();
+	measurementConsentCheck();
   if (validConfigTag(eventMigrationSheet, eventRanges.eventTags.read)) {
     let eventData = [];
     const filterSettings = {
