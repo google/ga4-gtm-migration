@@ -31,7 +31,7 @@ const validationSheet = ss.getSheetByName('Validation Settings');
 const settingsSheet = ss.getSheetByName('Settings');
 const cache = CacheService.getScriptCache();
 const cacheTimeout = 300;
-const version = '1.1';
+const version = '1.11';
 
 const gtmUrl = gtmUrlSheet.getRange('B1').getValue();
 const gtmPath = gtmUrl.split('#/container/')[1];
@@ -1198,7 +1198,7 @@ function getTagsFromSheet(sheet, range, migrationType, tagType) {
 	const tags = listTags();
 	
 	tags.forEach(tag => {
-		const tagIdIndex = tagIds.indexOf(parseInt(tag.getTagId()));
+		const tagIdIndex = tagIds.indexOf(parseInt(tag.tagId));
 		if (migrationType == 'pageview' && tagIdIndex != -1) {
 			if (rows[tagIdIndex][3] == tagType || tagType == 'all') {
 				tagData.push({
