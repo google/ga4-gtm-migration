@@ -270,18 +270,26 @@ const migrateTo = {
  * whether or not the GTM path changed and the path itself. 
  */
 function getGtmPathData() {
-  let path = cache.get('gtmPath');
-  if (path == gtmPath) {
+  path = gtmPath.split('/');
+  let formattedPath = '';
+  for (let i = 0; i < 6; i++) {
+    if (i == 0) {
+      formattedPath = path[i];
+    } else {
+      formattedPath += '/' + path[i];
+    }
+  }
+  let cachePath = cache.get('gtmPath');
+  if (cachePath == formattedPath) {
     return {
       changed: false,
-      path: path
+      path: cachePath
     };
   } else {
-    path = gtmPath;
-    cache.put('gtmPath', path, cacheTimeout);
+    cache.put('gtmPath', formattedPath, 300);
     return {
       changed: true,
-      path: path
+      path: formattedPath
     };
   }
 };
