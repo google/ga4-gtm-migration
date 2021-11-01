@@ -1,19 +1,18 @@
 /**
- * Copyright 2020 Google LLC
- * 
+ * Copyright 2021 Google LLC
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     https://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 
 /**
  * Migrates Universal Google Analytics (UA GA) tags to App + Web (AW) tags in
@@ -31,6 +30,7 @@ const validationSheet = ss.getSheetByName('Validation Settings');
 const settingsSheet = ss.getSheetByName('Settings');
 const cache = CacheService.getScriptCache();
 const cacheTimeout = 300;
+const cachingEnabled = settingsSheet.getRange(5,2,1,1).getValue();
 const version = '1.11';
 
 const gtmUrl = gtmUrlSheet.getRange('B1').getValue();
@@ -48,8 +48,8 @@ function onOpen() {
   .addItem('List Custom Definitions', 'pmWriteCustomDefinitionsToSheet')
   .addSeparator()
   .addItem('Migrate Config Tag', 'migrateConfigTag')
-  .addItem('Migrate Pageview Event Tags', 'migratePageviewEventTags')
-	
+  .addItem('Migrate Pageview Event Tags', 'migratePageviewEventTags');
+
   const analyticsEventSubMenu = ui
 	.createMenu('Event Migration')
   .addItem('List UA Settings Variables', 'emWriteUAVariableToSheet')
@@ -57,7 +57,7 @@ function onOpen() {
   .addItem('List UA Event Data', 'emWriteUAEventDataToSheet')
 	.addItem('List Custom Definitions', 'emWriteCustomDefinitionsToSheet')
 	.addSeparator()
-	.addItem('Migrate Event Tags', 'migrateEventTags')
+	.addItem('Migrate Event Tags', 'migrateEventTags');
 
   ui
   .createMenu('GTM Migration')
@@ -76,16 +76,20 @@ function onOpen() {
  * from Github.
  */
 function checkVersion() {
-  const githubCodeText = UrlFetchApp.fetch('https://raw.githubusercontent.com/google/ga4-gtm-migration/master/ga4GtmMigration.js').getContentText();
-  const versionRegex = new RegExp("version = '" + version + "'");
-  if (!versionRegex.test(githubCodeText) && 
-	!settingsSheet.getRange('B4').getValue()) {
+  const githubCodeText =
+      UrlFetchApp
+          .fetch(
+              'https://raw.githubusercontent.com/google/ga4-gtm-migration/master/ga4GtmMigration.js')
+          .getContentText();
+  const versionRegex = new RegExp('version = \'' + version + '\'');
+  if (!versionRegex.test(githubCodeText) &&
+      !settingsSheet.getRange('B4').getValue()) {
     const response = ui.alert(
-			'There is a new version of this tool available at ' + 
-			'https://github.com/google/ga4-gtm-migration. Please use the latest ' + 
-			'version of the tool by using the files on Github or making a copy of ' +
-			'this spreadsheet: ' +
-			'https://docs.google.com/spreadsheets/d/1wpmw7kkHpHzPIDC-mJS3BkSqGqf46W7E5UYpYTFilEc/')
+        'There is a new version of this tool available at ' +
+        'https://github.com/google/ga4-gtm-migration. Please use the latest ' +
+        'version of the tool by using the files on Github or making a copy of ' +
+        'this spreadsheet: ' +
+        'https://docs.google.com/spreadsheets/d/1wpmw7kkHpHzPIDC-mJS3BkSqGqf46W7E5UYpYTFilEc/');
     if (response == ui.Button.OK || response == ui.Button.CLOSE) {
       settingsSheet.getRange('B4').setValue(true);
     }
@@ -142,19 +146,19 @@ const pageviewRanges = {
   // UA pageview tags ranges for the pageview migration sheet.
   uaPageviewTags: {
     write: {
-      row: 2, 
-      column: 7, 
-      numRows: 50, 
+      row: 2,
+      column: 7,
+      numRows: 50,
       numColumns: 4
     },
     read: {
-      row: 2, 
-      column: 7, 
-      numRows: 50, 
+      row: 2,
+      column: 7,
+      numRows: 50,
       numColumns: 4
     }
   }
-}
+};
 
 // Event migration ranges
 const eventRanges = {
@@ -232,7 +236,7 @@ const eventRanges = {
       numColumns: 4
     }
   }
-}
+};
 
 // The delay in milliseconds between each write request to the GTM API.
 const writeDelay = parseInt(settingsSheet.getRange('B3').getValue()) || 4000;
@@ -242,32 +246,221 @@ const analyticsVersion = {
 	ga4Config: 'gaawc',
 	ga4Event: 'gaawe',
 	ua: 'ua'
-}
+};
 
 const uaTagType = {
 	pageview: 'TRACK_PAGEVIEW',
 	event: 'TRACK_EVENT'
-}
+};
 
 // Parameter key values as defined by the GTM API.
 const paramKeyValues = {
 	mid: 'measurementId',
 	trackType: 'trackType'
-}
+};
 
 // The "Migrate To" options for a given mapping.
 const migrateTo = {
 	config: 'Config Tag',
 	allEvents: 'All Event Tags',
 	singleEvent: 'Corresponding Event Tag'
+};
+
+/**
+ * Gets data from or sets data to the property / cache.
+ * @param {string} storage The property / cache. (required).
+ * @param {string} key Used to get data stored in the property / cache.
+ * (required).
+ * @param {string} scope The storage scope. Valid scopes - user, script,
+ * document (required).
+ * @param {string} dataType The property / cache data type. Possible values:
+ * json, bool, string (required when action is set).
+ * @param {string} action The action performed, get / set the property / cache
+ * (required if the action is set).
+ * @param {string} value The value if action === 'set', value to be set.
+ * (required if the action is set)
+ * @param {number} expirationDuration The duration after wich the cache expires.
+ * @return {string} The data stored in the property / cache.
+ */
+function getSetStorage(
+    storage, key, scope, dataType, action, value, expirationDuration) {
+  expirationDuration = expirationDuration || 21600;
+  let store = storage === 'cache' ? CacheService : PropertiesService;
+  let val;
+
+  if (scope === 'user') {
+    store = store[storage === 'cache' ? 'getUserCache' : 'getUserProperties']();
+  } else if (scope === 'script') {
+    store =
+        store[storage === 'cache' ? 'getScriptCache' : 'getScriptProperties']();
+  } else {
+    store =
+        store[storage === 'cache' ? 'getDocumentCache' : 'getDocumentProperties']();
+  }
+
+  if (action === 'set') {
+    val = value;
+    const argsTobePassed =
+        [key, dataType === 'json' ? JSON.stringify(value) : value];
+
+    if (storage === 'cache') argsTobePassed.push(expirationDuration);
+
+    store[storage === 'cache' ? 'put' : 'setProperty'](...argsTobePassed);
+  } else {
+    const storedValue = store[storage === 'cache' ? 'get' : 'getProperty'](key);
+    if (!storedValue) return null;
+
+    if (dataType === 'json')
+      val = JSON.parse(storedValue);
+    else if (dataType === 'bool')
+      val = storedValue === 'true';
+    else
+      val = storedValue;
+  }
+
+  return val;
+}
+
+/**
+ * Converts string to byte length.
+ * @param {string} str The string value to be converted to size.
+ * @return {number} The byte size of the string passed.
+ */
+function byteLength(str) {
+  // returns the byte length of an utf8 string
+  let s = str.length;
+  for (let i = str.length - 1; i >= 0; i -= 1) {
+    const code = str.charCodeAt(i);
+    if (code > 0x7f && code <= 0x7ff)
+      s += 1;
+    else if (code > 0x7ff && code <= 0xffff)
+      s += 2;
+    if (code >= 0xdc00 && code <= 0xdfff) i -= 1;  // trail surrogate
+  }
+  return s;
+}
+
+/**
+ * Returns the length of the string to save in the storage based on its
+ * limitation.
+ * @param {!Array} value The value to be stored.
+ * @param {string} type The cache / property type.
+ * @return {number} The length of the string.
+ */
+const getChunkSize = (value, type) => {
+  // Sets the max limit of a chunk. For cache, it is 95KB and for property it
+  // is 8.5KB
+  const sizeLimit = (type === 'cache' ? 95 : 8.5) * 1024;
+
+  let newValue = value;
+  let byteSize = byteLength(newValue);
+
+  while (byteSize > sizeLimit) {
+    // Slices the string in half till it is within the size limit
+    newValue = value.slice(0, (newValue.length / 2));
+    byteSize = byteLength(newValue);
+  }
+  return newValue.length;
+};
+
+/**
+ * Saves the property within the chache size limit.
+ * @param {string} name The name of the property.
+ * @param {!Array} value The value of the property.
+ * @param {string} type The type of the storage property / cache.
+ * @param {string} scope The scope of the storage user / document / script.
+ */
+function saveInBatches(name, value, type, scope) {
+  type = type || 'property';
+  scope = scope || 'user';
+  const jsonStr = JSON.stringify(value);
+  const strSliceLength = getChunkSize(jsonStr, type);
+
+  // Number of iterations to perform
+  const totalChunkedIterations = Math.ceil(jsonStr.length / strSliceLength);
+  let counter = 0;
+
+  for (let i = 0; i < jsonStr.length; i += strSliceLength) {
+    const prop = jsonStr.slice(i, i + strSliceLength);
+
+    getSetStorage(type, `${name}_${counter}`, scope, 'string', 'set', prop);
+    counter += 1;
+  }
+
+  // Stores the total number of chunks stored to be used when retrieving
+  getSetStorage(
+      type, `${name}_total`, scope, 'number', 'set', totalChunkedIterations);
+}
+
+/**
+ * Retreive the property in batches to avoid Argument too large error.
+ * @param {string} name The name of the property.
+ * @param {string} type The type of the storage property / cache.
+ * @param {string} scope The scope of the storage user / document / script.
+ * @return {!Object} The value in the property after fetching from batches.
+ */
+function retrieveFromBatches(name, type, scope) {
+  type = type || 'property';
+  scope = scope || 'scope';
+  const count =
+      Number(getSetStorage(type, `${name}_total`, scope, 'number')) || 0;
+  if (count === 0) return undefined;
+
+  let jsonStr = '';
+
+  for (let i = 0; i < count; i += 1) {
+    const tempStr = getSetStorage(type, `${name}_${i}`, scope, 'string');
+
+    // JSON string is stitched here
+    jsonStr += tempStr;
+  }
+
+  // JSON string is parsed and returned
+  return JSON.parse(jsonStr);
+}
+
+/**
+ * Deletes all the saved batches.
+ * @param {string} name The name of the property.
+ * @param {string} type The type of the storage property / cache.
+ * @param {string} scope The scope of the storage user / document / script.
+ */
+function deleteBatches(name, type, scope) {
+  type = type || 'property';
+  scope = scope || 'user';
+  const count =
+      Number(getSetStorage(type, `${name}_total`, scope, 'number')) || 0;
+  const serviceFunc = type === 'property' ? PropertiesService : CacheService;
+
+  // Returns the method to be used based on the type of storage and scope
+  const funcMethod = {
+    property: {
+      user: 'getUserProperties',
+      document: 'getDocumentProperties',
+      script: 'getScriptProperties',
+    },
+    cache: {
+      user: 'getUserCache',
+      document: 'getDocumentCache',
+      script: 'getScriptCache',
+    },
+  }[type][scope];
+  const deleteObj = serviceFunc[funcMethod]();
+  const deleteMethod = type === 'property' ? 'deleteProperty' : 'remove';
+
+  for (let i = 0; i < count; i += 1) {
+    deleteObj[deleteMethod](`${name}_${i}`);
+  }
+
+  deleteObj[deleteMethod](`${name}_total`);
 }
 
 /**
  * Checks if the chached gtmPath variable is the same as the current
  * value in the spreadsheet and returns whether or not that is true
  * and the current path in the spreadsheet.
- * @retun {!Object<boolean, string>} An object that contains data about
- * whether or not the GTM path changed and the path itself. 
+ * @return {!Object<boolean, string>} An object that contains data about
+ * whether or not the GTM path changed and the path itself.
  */
 function getGtmPathData() {
   path = gtmPath.split('/');
@@ -279,20 +472,27 @@ function getGtmPathData() {
       formattedPath += '/' + path[i];
     }
   }
-  let cachePath = cache.get('gtmPath');
-  if (cachePath == formattedPath) {
-    return {
-      changed: false,
-      path: cachePath
-    };
+  if (cachingEnabled) {
+    let cachePath = cache.get('gtmPath');
+    if (cachePath == formattedPath) {
+      return {
+        changed: false,
+        path: cachePath
+      };
+    } else {
+      cache.put('gtmPath', formattedPath, 300);
+      return {
+        changed: true,
+        path: formattedPath
+      };
+    }
   } else {
-    cache.put('gtmPath', formattedPath, 300);
     return {
       changed: true,
       path: formattedPath
     };
   }
-};
+}
 
 /**
  * Makes an API call to retrieve a list of variables in a GTM container.
@@ -301,14 +501,22 @@ function getGtmPathData() {
  * @return {?Object} The API response.
  */
 function listVariables() {
-  const cached = cache.get('variables');
   const pathData = getGtmPathData();
-  if (cached != null && !pathData.changed) {
-    return JSON.parse(cached);
+  if (cachingEnabled) {
+    const cached = retrieveFromBatches('variables', 'cache');
+    if (cached != null && !pathData.changed) {
+      return JSON.parse(cached);
+    } else {
+      const data = TagManager.Accounts.Containers.Workspaces.Variables.list(pathData.path).variable;
+      try {
+        saveInBatches('variables', data, 'cache');
+      } catch(e) {
+        return data;
+      }
+      return JSON.parse(JSON.stringify(data));
+    }
   } else {
-    const data = TagManager.Accounts.Containers.Workspaces.Variables.list(pathData.path).variable;
-    cache.put('variables', JSON.stringify(data), cacheTimeout);
-    return JSON.parse(JSON.stringify(data));
+    return TagManager.Accounts.Containers.Workspaces.Variables.list(pathData.path).variable;
   }
 }
 
@@ -319,14 +527,22 @@ function listVariables() {
  * @return {?Object} The API response.
  */
 function listTags() {
-  const cached = cache.get('tags');
   const pathData = getGtmPathData();
-  if (cached != null && !pathData.changed) {
-    return JSON.parse(cached);
+  if (cachingEnabled) {
+    const cached = retrieveFromBatches('tags', 'cache');
+    if (cached != null && !pathData.changed) {
+      return JSON.parse(cached);
+    } else {
+      const data = TagManager.Accounts.Containers.Workspaces.Tags.list(pathData.path).tag;
+      try {
+        saveInBatches('tags', data, 'cache');
+      } catch(e) {
+        return data;
+      }
+      return JSON.parse(JSON.stringify(data));
+    }
   } else {
-    const data = TagManager.Accounts.Containers.Workspaces.Tags.list(pathData.path).tag;
-    cache.put('tags', JSON.stringify(data), cacheTimeout);
-    return JSON.parse(JSON.stringify(data));
+    return TagManager.Accounts.Containers.Workspaces.Tags.list(pathData.path).tag;
   }
 }
 
@@ -337,7 +553,7 @@ function listTags() {
  */
 function getVariable(id) {
   return TagManager.Accounts.Containers.Workspaces.Variables
-    .get(gtmPath + '/variables/' + id);
+    .get(getGtmPathData().path + '/variables/' + id);
 }
 
 /**
@@ -347,7 +563,7 @@ function getVariable(id) {
  */
 function getTag(id) {
   return TagManager.Accounts.Containers.Workspaces.Tags
-    .get(gtmPath + '/tags/' + id);
+    .get(getGtmPathData().path + '/tags/' + id);
 }
 
 /**
@@ -380,7 +596,7 @@ function checkForDuplicateTagName(tagName) {
 /**
  * Identifies if a character is upper or lowercase.
  * @param {string} character
- * @return {bool}
+ * @return {!bool} Whether or not a character is capitalized.
  */
 function isCharacterCapital(character) {
   if (character == character.toUpperCase()) {
@@ -413,7 +629,7 @@ function getTagSkeleton(tag) {
 
 /**
  * Returns any AW config tag in the container.
- * @param {string} awMeasurementId The measurement ID for config tag that a 
+ * @param {string} awMeasurementId The measurement ID for config tag that a
  * user wants to get.
  * @return {?Object} A config tag if one exists in the container, else null.
  */
@@ -448,7 +664,7 @@ function removeEmptyRows(rows) {
 /**
  * Returns an array of universal analytics tags.
  * @param {!Array<?Object>} tags
- * @param {!Object} filterSettings An object with additional filter settings: 
+ * @param {!Object} filterSettings An object with additional filter settings:
  * analyticsType - GA4 config or event or UA, tagType - GA4 config or event or
  * UA, additionalConditions - Either sameSettingsVariable, selectedTags, or none
  * @return {?Array<?Object>}
@@ -457,9 +673,9 @@ function filterTags(tags, filterSettings) {
   let filteredTags = [];
   const sheet = ss.getActiveSheet();
   let selectedSettingsVariableName = '';
-  let tagIds = []
+  let tagIds = [];
   if (filterSettings.tagType == 'TRACK_PAGEVIEW') {
-    selectedSettingsVariableName = '{{' + 
+    selectedSettingsVariableName = '{{' +
     sheet.getRange(
       pageviewRanges.settingsVariable.read.row,
       pageviewRanges.settingsVariable.read.column,
@@ -478,7 +694,7 @@ function filterTags(tags, filterSettings) {
       }
     }).map(row => row[1]);
   } else if (filterSettings.tagType == 'TRACK_EVENT') {
-    selectedSettingsVariableName = '{{' + 
+    selectedSettingsVariableName = '{{' +
     sheet.getRange(
       eventRanges.settingsVariable.read.row,
       eventRanges.settingsVariable.read.column,
@@ -505,10 +721,10 @@ function filterTags(tags, filterSettings) {
                 if (gaSettingsParam != undefined) {
                   if (gaSettingsParam.value == selectedSettingsVariableName) {
                     filteredTags.push(tag);
-                  } 
+                  }
                 }
               } else if (filterSettings.additionalConditions == 'selectedTags') {
-                if (tagIds.indexOf(parseInt(tag.tagId)) != -1) { 
+                if (tagIds.indexOf(parseInt(tag.tagId)) != -1) {
                   filteredTags.push(tag);
                 }
               } else if (filterSettings.additionalConditions == 'none') {
@@ -534,11 +750,11 @@ function listTagNamesAndIds(tags) {
 	const tagNamesAndIds = [];
 	tags.forEach(tag => {
     tagNamesAndIds.push([
-			'=hyperlink("' + tag.tagManagerUrl + 
+			'=hyperlink("' + tag.tagManagerUrl +
 			'","' + tag.name + '")',
 			tag.tagId
 		]);
-	})
+	});
   return tagNamesAndIds;
 }
 
@@ -570,7 +786,7 @@ function buildMapObject (name, value) {
 			{value: value.toString(), type: 'template', key: 'value'}
 		],
 		type: 'map'
-	}
+	};
 }
 
 /**
@@ -590,20 +806,20 @@ function getFieldMappings(sheet, range) {
 		fields: {
 			configTag: [],
 			allEventTags: [],
-			singleEventTags: []	
+			singleEventTags: []
 		}
 	};
 
   if (values[0][0] != '') {
     let filteredRows = removeEmptyRows(values);
 		const entityIds = [];
-		
+
     filteredRows.forEach(row => {
 			const entityId = row[1];
 			const fieldName = row[2];
 			const fieldValue = row[3];
-			const migrateToOption = row[4]
-			
+			const migrateToOption = row[4];
+
 			if (migrateToOption == migrateTo.config) {
 				mappings.fields.configTag.push(buildMapObject(fieldName, fieldValue));
 			} else if (migrateToOption == migrateTo.allEvents) {
@@ -639,7 +855,7 @@ function getCustomDefinitionMappings(sheet, range) {
   const values =
 	sheet.getRange(range.row, range.column, range.numRows, range.numColumns)
 	.getValues();
-	
+
 	const mappings = {
 		customDefinitions: {
 			configTag: {
@@ -657,7 +873,7 @@ function getCustomDefinitionMappings(sheet, range) {
   if (values[0][0] != '') {
     let filteredRows = removeEmptyRows(values);
 		const entityIds = [];
-		
+
     filteredRows.forEach(row => {
 			const entityId = row[1];
 			const fieldName = row[4];
@@ -678,12 +894,11 @@ function getCustomDefinitionMappings(sheet, range) {
 					.push(buildMapObject(fieldName, fieldValue));
 				} else {
 					entityIds.push(entityId);
-					mappings.customDefinitions.singleEventTags
-					.push({
+					mappings.customDefinitions.singleEventTags.push({
 						entityId: entityId,
 						user_property: [],
 						parameter: []
-					})
+					});
 					mappings.customDefinitions
 					.singleEventTags[entityIds.indexOf(entityId)][scope]
 					.push(buildMapObject(fieldName, fieldValue));
@@ -705,12 +920,12 @@ function getCustomDefinitionMappings(sheet, range) {
  */
 function logChange(entityName, entityType, entityId, actionTaken, gtmURL) {
   const date = new Date();
-  const currentDateTime = 
+  const currentDateTime =
 		date.getDate() + '-' + date.getMonth() + '-' + date.getFullYear();
   const user = Session.getActiveUser().getEmail();
   const loggedChange = [[
 		currentDateTime, entityName, entityType, entityId, actionTaken, gtmURL, user
-	]]
+	]];
   changelogSheet.getRange(
 		(changelogSheet.getLastRow() + 1), 1, 1, 7
 	).setValues(loggedChange);
@@ -730,7 +945,7 @@ function validSettingsVariable(sheet, range) {
   if (rows.length > 0) {
     return true;
   } else {
-    ui.alert('Must select UA settings variable by checking a checkbox.')
+    ui.alert('Must select UA settings variable by checking a checkbox.');
     return false;
   }
 }
@@ -753,7 +968,7 @@ function validMID(sheet, range) {
   if (rows.length > 0) {
     return true;
   } else {
-    ui.alert('Must enter measurement ID in column D.')
+    ui.alert('Must enter measurement ID in column D.');
     return false;
   }
 }
@@ -777,8 +992,8 @@ function validConfigTag(sheet, range) {
   if (rows.length == 0) {
     return true;
   } else {
-    ui.alert('All event tags being migrated must have a ' + 
-		'specificied config tag.')
+    ui.alert('All event tags being migrated must have a ' +
+		'specificied config tag.');
     return false;
   }
 }
@@ -795,7 +1010,7 @@ function validCustomData(sheet, range) {
     range.row, range.column,
     range.numRows, range.numColumns).getValues();
   rows = rows.filter(row => {
-    if (row[row.length - 1] == 'All Event Tags' || 
+    if (row[row.length - 1] == 'All Event Tags' ||
       row[row.length - 1] == 'Corresponding Event Tag' ||
 			row[row.length - 1] == 'Config Tag') {
 				if (row[row.length - 2] != 'user_property' &&
@@ -807,17 +1022,21 @@ function validCustomData(sheet, range) {
   if (rows.length == 0) {
     return true;
   } else {
-    ui.alert('All event data and/or custom definitions must specify if ' + 
+    ui.alert('All event data and/or custom definitions must specify if ' +
     'they will be converted to a user_property or parameter.');
     return false;
   }
 }
 
+/**
+ * Checks if a user has consented to be measured with Google Analytics.
+ * @return {!bool} Whether or not a user has consented.
+ */
 function measurementConsentCheck() {
   let consented = settingsSheet.getRange('B2').getValue();
   if (consented != true && consented != false) {
     const response = ui.alert('Can we measure your useage of this tool to ' +
-    'better understand how the tool is used and inform future development of ' 
+    'better understand how the tool is used and inform future development of '
 		+ ' this tool?', ui.ButtonSet.YES_NO);
     if (response == ui.Button.YES) {
       settingsSheet.getRange('B2').setValue(true);
@@ -830,6 +1049,10 @@ function measurementConsentCheck() {
   return consented;
 }
 
+/**
+ * Sends a hit to Google Analytics.
+ * @param {!Object} data The event data for the Google Analytics hit.
+ */
 function sendGAHit(data) {
   if (measurementConsentCheck()) {
     const endpoint = 'https://www.google-analytics.com/collect';
@@ -853,7 +1076,7 @@ function sendGAHit(data) {
 // Functions related to the UA settings variable and the GA4 measurement ID
 
 /**
- * Finds all the UA settings variables in a container and writes them to a 
+ * Finds all the UA settings variables in a container and writes them to a
  * specified range and sheet.
  * @param {!Object} sheet The sheet the information will be written to.
  * @param {!Object} range The sheet range for the data to be written.
@@ -945,7 +1168,7 @@ function cdWriteToSheet(sheet, range, type) {
     );
   }
 	const analyticsVariable = getVariable(analyticsVariableId);
-	
+
 	customDefinitions = customDefinitions.concat(cdList(analyticsVariable));
 
   const tags = filterTags(
@@ -960,7 +1183,7 @@ function cdWriteToSheet(sheet, range, type) {
   tags.forEach(tag => {
     customDefinitions = customDefinitions.concat(cdList(tag));
   });
-      
+
   range.numRows = customDefinitions.length;
   if (customDefinitions.length > 0) {
     sheet
@@ -1011,7 +1234,7 @@ function cdList(entity) {
  * parameters.
  * @param {!Object} sheet The sheet the information will be fead from.
  * @param {!Object} range The sheet range for the data to be read from.
- * @return {!Object} The user 
+ * @return {!Object} The user
  */
 function cdGetFromSheet(sheet, range) {
   const content =
@@ -1121,7 +1344,7 @@ function pmWriteUAVariableToSheet() {
  */
 function pmWriteFieldsToSheet() {
   if (validSettingsVariable(pageviewMigrationSheet,
-		pageviewRanges.settingsVariable.read) && 
+		pageviewRanges.settingsVariable.read) &&
 		validMID(pageviewMigrationSheet, pageviewRanges.settingsVariable.read)) {
     let fields = [];
 
@@ -1138,7 +1361,7 @@ function pmWriteFieldsToSheet() {
         additionalConditions: 'selectedTags'
       }
     );
-    
+
     pageviewTags.forEach(tag => {
       fields = fields.concat(fieldsList(tag));
     });
@@ -1154,7 +1377,7 @@ function pmWriteFieldsToSheet() {
  */
 function pmWriteCustomDefinitionsToSheet() {
   if (validSettingsVariable(pageviewMigrationSheet,
-		pageviewRanges.settingsVariable.read) && 
+		pageviewRanges.settingsVariable.read) &&
 		validMID(pageviewMigrationSheet, pageviewRanges.settingsVariable.read)) {
     cdWriteToSheet(
       pageviewMigrationSheet, pageviewRanges.customDefinitions.write, uaTagType.pageview);
@@ -1166,7 +1389,7 @@ function pmWriteCustomDefinitionsToSheet() {
  */
 function pmWriteUAPageviewToSheet() {
   if (validSettingsVariable(pageviewMigrationSheet,
-		pageviewRanges.settingsVariable.read) && 
+		pageviewRanges.settingsVariable.read) &&
 		validMID(pageviewMigrationSheet, pageviewRanges.settingsVariable.read)) {
     const tags = listTags();
     const pageviewTags = listTagNamesAndIds(
@@ -1200,25 +1423,25 @@ function getTagsFromSheet(sheet, range, migrationType, tagType) {
 	rows.forEach(row => {
 		tagIds.push(row[1]);
 	});
-  
+
 	const tagData = [];
-	
+
 	const tags = listTags();
-	
+
 	tags.forEach(tag => {
 		const tagIdIndex = tagIds.indexOf(parseInt(tag.tagId));
 		if (migrationType == 'pageview' && tagIdIndex != -1) {
 			if (rows[tagIdIndex][3] == tagType || tagType == 'all') {
 				tagData.push({
 					tagName: rows[tagIdIndex][2],
-					id: rows[tagIdIndex][1], 
+					id: rows[tagIdIndex][1],
 					tag: tag
 				});
 			}
 		} else if (migrationType == 'event' && tagIdIndex != -1) {
 			if (rows[tagIdIndex][5]) {
 				tagData.push({
-          id: rows[tagIdIndex][1], 
+          id: rows[tagIdIndex][1],
 					tagName: rows[tagIdIndex][2],
 					eventName: rows[tagIdIndex][3],
           configTag: rows[tagIdIndex][4],
@@ -1227,7 +1450,7 @@ function getTagsFromSheet(sheet, range, migrationType, tagType) {
 			}
 		}
 	});
-	return tagData
+	return tagData;
 }
 
 /**
@@ -1253,9 +1476,9 @@ function migratePageviewTag(
 			pageviewRanges.settingsVariable.read,
 			'GA4'
 		);
-		
+
 		const fieldsToSet =	fieldMappings.configTag.concat(
-			customDefinitionMappings.configTag.parameter)
+			customDefinitionMappings.configTag.parameter);
 
     skeletonPageviewTag.type = 'gaawc';
     skeletonPageviewTag.name = checkForDuplicateTagName(tag.tagName);
@@ -1271,7 +1494,7 @@ function migratePageviewTag(
 		});
     skeletonPageviewTag.parameter.push({
 			key: 'measurementId',
-			type: 'template', 
+			type: 'template',
 			value: measurementId
 		});
 
@@ -1284,8 +1507,8 @@ function migratePageviewTag(
     skeletonPageviewTag.name = tag.tagName;
 		// Set the event name to page_view.
     skeletonPageviewTag.parameter.push({
-			key: 'eventName', 
-			type: 'template', 
+			key: 'eventName',
+			type: 'template',
 			value: 'page_view'
 		});
 		// Set the config tag for the event.
@@ -1294,7 +1517,7 @@ function migratePageviewTag(
 			type: 'tagReference',
 			value: configTag.name
 		});
-		
+
 		// Set custom definitions associated with all event tags.
 		let parameters = [];
 		parameters = parameters.concat(
@@ -1304,7 +1527,7 @@ function migratePageviewTag(
 		userProperties = userProperties.concat(
 			customDefinitionMappings.allEventTags.user_property
 		);
-		
+
 		// Set custom definitions from corresponding tag.
 		customDefinitionMappings.singleEventTags.forEach(entity => {
 			if (entity.entityId == tag.id) {
@@ -1312,7 +1535,7 @@ function migratePageviewTag(
 				userProperties = userProperties.concat(entity.user_property);
 			}
 		});
-		
+
 	  skeletonPageviewTag.parameter.push({
 			key: 'userProperties',
 			type: 'list',
@@ -1355,13 +1578,13 @@ function migrateConfigTag() {
     const fieldMappings = getFieldMappings(
       pageviewMigrationSheet,
       pageviewRanges.fields.read
-    ).fields;	
-    
+    ).fields;
+
     const tags = getTagsFromSheet(
-      pageviewMigrationSheet, pageviewRanges.uaPageviewTags.read, 
+      pageviewMigrationSheet, pageviewRanges.uaPageviewTags.read,
 			'pageview', 'Config Tag'
     );
-    
+
     tags.forEach(tag => {
       migratePageviewTag(
         tag, 'Config Tag', customDefinitionMappings, fieldMappings
@@ -1375,7 +1598,7 @@ function migrateConfigTag() {
  * Kicks off the migration of the pageview event tags.
  */
 function migratePageviewEventTags() {
-  if (validCustomData(pageviewMigrationSheet, 
+  if (validCustomData(pageviewMigrationSheet,
     pageviewRanges.customDefinitions.read)) {
     const customDefinitionMappings = getCustomDefinitionMappings(
       pageviewMigrationSheet,
@@ -1385,12 +1608,12 @@ function migratePageviewEventTags() {
     const fieldMappings = getFieldMappings(
       pageviewMigrationSheet,
       pageviewRanges.fields.read
-    ).fields;			
+    ).fields;
 
     const tags = getTagsFromSheet(
         pageviewMigrationSheet, pageviewRanges.uaPageviewTags.read, 'pageview', 'Event Tag'
     );
-    
+
     tags.forEach(tag => {
       migratePageviewTag(
         tag, 'Event Tag', customDefinitionMappings, fieldMappings
@@ -1408,7 +1631,7 @@ function migratePageviewEventTags() {
  * @param {!Object} sheet The sheet to write the config tags to.
  * @param {!Object} range The write range for the sheet.
  */
-function emWriteTagsToSheet(sheet, range, gaVersion, uaType) {
+function emWriteTagsToSheet(sheet, range) {
   const filterSettings = {
     analyticsType: gaVersion,
     tagType: uaType,
@@ -1424,7 +1647,7 @@ function emWriteTagsToSheet(sheet, range, gaVersion, uaType) {
 }
 
 /**
- * Lists the config tag names and IDs in the validation settings sheet. 
+ * Lists the config tag names and IDs in the validation settings sheet.
  */
 function emListConfigTags() {
   emWriteTagsToSheet(
@@ -1444,7 +1667,7 @@ function emListUAEventTags() {
   }
 }
 
-/** 
+/**
  * Writes the custom definitions for all UA event tags in a GTM container to
  * the event migration sheet.
  */
@@ -1467,7 +1690,7 @@ function uaEventDataList(entity) {
     entity.parameter.forEach(param => {
       const entityName = entity.name;
       const id = entity.variableId || entity.tagId;
-      if (param.key == 'eventCategory' || 
+      if (param.key == 'eventCategory' ||
       param.key == 'eventAction' ||
       param.key == 'eventLabel') {
         eventData.push([
@@ -1483,7 +1706,7 @@ function uaEventDataList(entity) {
   return eventData;
 }
 
-/** 
+/**
  * Writes UA event category, action, and label data to the event migration sheet.
  */
 function emWriteUAEventDataToSheet() {
@@ -1495,7 +1718,7 @@ function emWriteUAEventDataToSheet() {
       analyticsType: analyticsVersion.ua,
       tagType: uaTagType.event,
       additionalConditions: 'selectedTags'
-    }
+    };
     const eventTags = filterTags(listTags(), filterSettings);
     eventTags.forEach(tag => {
       eventData = eventData.concat(uaEventDataList(tag));
@@ -1510,7 +1733,7 @@ function emWriteUAEventDataToSheet() {
  * Writes event category, action, and label data to a sheet.
  * @param {!Object} sheet The sheet the information will be written to.
  * @param {!Object} range The sheet range for the data to be written.
- * @param {!Array<!Array<string>>} eventData A double array listing the event 
+ * @param {!Array<!Array<string>>} eventData A double array listing the event
  * data to be written to the sheet.
  */
 function eventDataWriteToSheet(sheet, range, eventData) {
@@ -1534,7 +1757,7 @@ function getEventDataMappings(sheet, range) {
   const values =
 	sheet.getRange(range.row, range.column, range.numRows, range.numColumns)
 	.getValues();
-	
+
 	const mappings = {
 		eventData: {
 			allEventTags: {
@@ -1548,7 +1771,7 @@ function getEventDataMappings(sheet, range) {
   if (values[0][0] != '') {
     let filteredRows = removeEmptyRows(values);
 		const entityIds = [];
-		
+
     filteredRows.forEach(row => {
 			const entityId = row[1];
 			const fieldName = row[3];
@@ -1566,12 +1789,11 @@ function getEventDataMappings(sheet, range) {
 					.push(buildMapObject(fieldName, fieldValue));
 				} else {
 					entityIds.push(entityId);
-					mappings.eventData.singleEventTags
-					.push({
+					mappings.eventData.singleEventTags.push({
 						entityId: entityId,
 						user_property: [],
 						parameter: []
-					})
+					});
 					mappings.eventData
 					.singleEventTags[entityIds.indexOf(entityId)][scope]
 					.push(buildMapObject(fieldName, fieldValue));
@@ -1592,22 +1814,22 @@ function emWriteUAVariableToSheet() {
 /**
  * Creates a new GA4 tag basd on the original UA event.
  * @param {!Object} tag The tag to be migrated.
- * @param {?Object} customDefinitionMappings The custom definitions from the 
+ * @param {?Object} customDefinitionMappings The custom definitions from the
  * original tag.
  * @param {?Object} eventDataMappings The event data from the original tag.
  */
 function migrateEventTag(tag, customDefinitionMappings, eventDataMappings) {
   let skeletonEventTag = getTagSkeleton(tag.tag);
   skeletonEventTag.parameter = [];
-	
+
 	// Set the tag type to GA4's event type.
   skeletonEventTag.type = analyticsVersion.ga4Event;
   skeletonEventTag.name = checkForDuplicateTagName(tag.tagName);
-	
+
 	// Set the event name to page_view.
   skeletonEventTag.parameter.push({
-		key: 'eventName', 
-		type: 'template', 
+		key: 'eventName',
+		type: 'template',
 		value: tag.eventName
 	});
 	// Set the config tag for the event.
@@ -1616,7 +1838,7 @@ function migrateEventTag(tag, customDefinitionMappings, eventDataMappings) {
 		type: 'tagReference',
 		value: tag.configTag
 	});
-		
+
 	// Set mappings associated with all event tags.
 	let parameters = [];
 	parameters = parameters.concat(
@@ -1628,7 +1850,7 @@ function migrateEventTag(tag, customDefinitionMappings, eventDataMappings) {
 		customDefinitionMappings.allEventTags.user_property,
     eventDataMappings.allEventTags.user_property
 	);
-	
+
 	// Set mappings for corresponding tag.
 	customDefinitionMappings.singleEventTags.forEach(entity => {
 		if (entity.entityId == tag.id) {
@@ -1642,7 +1864,7 @@ function migrateEventTag(tag, customDefinitionMappings, eventDataMappings) {
       userProperties = userProperties.concat(entity.user_property);
     }
   });
-		
+
 	skeletonEventTag.parameter.push({
 		key: 'userProperties',
 		type: 'list',
@@ -1663,7 +1885,7 @@ function migrateEventTag(tag, customDefinitionMappings, eventDataMappings) {
     label: newEventTag.containerId
   };
   sendGAHit(gaData);
-	
+
 	logChange(
 		newEventTag.name,
 		newEventTag.type,
@@ -1677,7 +1899,7 @@ function migrateEventTag(tag, customDefinitionMappings, eventDataMappings) {
  * Kicks off the migration of the event tags.
  */
 function migrateEventTags() {
-  if (validCustomData(eventMigrationSheet, 
+  if (validCustomData(eventMigrationSheet,
 		eventRanges.customDefinitions.read)) {
     const customDefinitionMappings = getCustomDefinitionMappings(
       eventMigrationSheet,
@@ -1692,7 +1914,7 @@ function migrateEventTags() {
     const tags = getTagsFromSheet(
       eventMigrationSheet, eventRanges.eventTags.read, 'event', ''
     );
-    
+
     tags.forEach(tag => {
       migrateEventTag(tag, customDefinitionMappings, eventDataMappings);
       Utilities.sleep(writeDelay);
