@@ -75,7 +75,7 @@ function getEventDataMappings(sheetsMetaField) {
 		}
 	};
 
-  if (values[0][0] != '') {
+  if (values.length > 0) {
     let filteredRows = removeEmptyRows(values);
 		const entityIds = [];
 
