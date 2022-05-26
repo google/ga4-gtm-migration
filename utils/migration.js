@@ -93,11 +93,9 @@ function migratePageviewTag(
 		});
 
   } else if (tagType == 'Event Tag') {
-    const configTag = getConfigTag(measurementId);
-
 		// Set the tag type to GA4's event type.
     skeletonPageviewTag.type = analyticsVersion.ga4Event;
-    skeletonPageviewTag.name = tagData.newSettings.tagName;
+    skeletonPageviewTag.name = checkForDuplicateTagName(tagData.newSettings.tagName);
 		// Set the event name to page_view.
     skeletonPageviewTag.parameter.push({
 			key: 'eventName',
@@ -108,7 +106,7 @@ function migratePageviewTag(
     skeletonPageviewTag.parameter.push({
 			key: 'measurementId',
 			type: 'tagReference',
-			value: configTag.name
+			value: tagData.newSettings.configTag
 		});
 
 		// Set custom definitions associated with all event tags.

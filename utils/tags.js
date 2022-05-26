@@ -15,29 +15,6 @@
  */
 
 /**
- * Returns any AW config tag in the container.
- * @param {string} measurementId The measurement ID for config tag that a
- * user wants to get.
- * @return {?Object} A config tag if one exists in the container, else null.
- */
-function getConfigTag(measurementId) {
-  const allTags = listGTMResources('tags', getSelectedWorkspacePath());
-  let configTag;
-  allTags.forEach(tag => {
-    if (tag.type == analyticsVersion.ga4Config) {
-      tag.parameter.forEach(param => {
-        if (param.key == paramKeyValues.mid) {
-          if (param.value == measurementId) {
-            configTag = tag;
-          }
-        }
-      });
-    }
-  });
-  return configTag;
-}
-
-/**
  * Extracts the tag name and ID and returns a double array of names and IDs.
  * @param {!Array<!Object>} tags An array of tag objects.
  * @return {!Array} An array of arrays with two values, a tag name and ID.
@@ -65,6 +42,7 @@ function writeUAPageviewTagsToSheet() {
       filterUATags(tags, analyticsVersion.ua, uaTagType.pageview,
         'sameSettingsVariable', sheetsMetaField, 'pageview tags'));
     writeToSheet(pageviewTags, sheetsMetaField, 'pageview tags');
+    writeConfigTagsToSheet();
   }
 }
 
@@ -77,10 +55,8 @@ function filterConfigTags(tags) {
 }
 
 /**
- * Writes config tag names and IDs to the validation sheet to create a drop-down
- * menu for user to select from on the event migration sheet.
- * @param {!Object} sheet The sheet to write the config tags to.
- * @param {!Object} range The write range for the sheet.
+ * Writes the UA event tag names and IDs to the event migration sheet. Also 
+ * writes config tag names and IDs to the validation sheet via writeConfigTagsToSheet().
  */
 function writeEventAndConfigTagsToSheet() {
   const sheetsMetaField = 'eventMigration';
@@ -89,11 +65,19 @@ function writeEventAndConfigTagsToSheet() {
     const filteredUATags = filterUATags(tags, analyticsVersion.ua, uaTagType.event, 'sameSettingsVariable', sheetsMetaField, 'event tags');
     const formatedEventTagNamesAndIds = formatTagNamesAndIds(filteredUATags);
     writeToSheet(formatedEventTagNamesAndIds, sheetsMetaField, 'event tags');
-    const filteredConfigTags = filterConfigTags(tags);
-    const formatedConfigTagNamesAndIds = formatTagNamesAndIds(filteredConfigTags);
-    clearRangeContent('validation', 'config tags');
-    writeToSheet(formatedConfigTagNamesAndIds, 'validation', 'config tags');
+    writeConfigTagsToSheet();
   }
+}
+
+/**
+ * Writes config tag names and IDs to the validation sheet.
+ */
+function writeConfigTagsToSheet() {
+  const tags = listGTMResources('tags', getSelectedWorkspacePath());
+  const filteredConfigTags = filterConfigTags(tags);
+  const formatedConfigTagNamesAndIds = formatTagNamesAndIds(filteredConfigTags);
+  clearRangeContent('validation', 'config tags');
+  writeToSheet(formatedConfigTagNamesAndIds, 'validation', 'config tags');
 }
 
 /**
@@ -117,10 +101,11 @@ function formatTagsToMigrate(sheetsMetaField, rangeName, tagType) {
 	tags.forEach(tag => {
 		const tagIdIndex = tagIds.indexOf(parseInt(tag.tagId));
 		if (sheetsMetaField == 'pageviewMigration' && tagIdIndex != -1) {
-			if (rows[tagIdIndex][3] == tagType || tagType == 'all') {
+			if (rows[tagIdIndex][rows[tagIdIndex].length-1] == tagType || tagType == 'all') {
 				tagData.push({
           newSettings: {
             tagName: rows[tagIdIndex][2],
+            configTag: rows[tagIdIndex][3]
           },
           oldTag: {
             tag: tag,

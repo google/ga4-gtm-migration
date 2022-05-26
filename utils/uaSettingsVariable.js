@@ -22,6 +22,7 @@
  * @param {string} sheetName
  */
 function writeAnalyticsSettingsVariableToSheet(sheetName) {
+  checkRelease();
   const variables = listGTMResources('variables', getSelectedWorkspacePath());
   let analyticsVariables = [];
   variables.forEach(variable => {

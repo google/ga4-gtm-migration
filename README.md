@@ -1,5 +1,3 @@
-
-
 ## GA4 GTM Migration Tool
 
 This is not an officially supported Google product.
@@ -46,6 +44,8 @@ By following these steps, you can translate pageview tags into either config or 
     *   Make sure to add the GA4 measurement ID and tick the box before proceeding further.
 4. Click **GTM Migration > Pageview Migration > List UA Pageview Tags**.
     *   This will list the Universal Analytics pageview tags in the Tag Manager workspace that are associated with the settings variable selected in the previous step. You’ll need to determine which tags should be migrated and if a given tag should be migrated as a config or event tag. You can change the tag names, but the tag IDs should not be edited.
+    *   Migrating to config tag: Do not enter anything in column J.
+    *   Migrating to pageview event tag: Enter the config tag name in column J. A config tag must exist in the GTM workspace before a pageview event tag can be created.
 5. Click **GTM Migration > Pageview Migration > List UA Fields**.
     *   This will list all the “Fields to Set” settings for the Universal Analytics pageview tags in the Tag Manager workspace that are being migrated. You will need to determine if a given field should be migrated to a config tag, the field name, and the field value. The Google Analytics 4 field to set name and value columns are used in the new Google Analytics 4 tags during the migration process.
 6. Click **GTM Migration > Pageview Migration > List Custom Definitions**.

@@ -83,7 +83,7 @@ const sheetsMeta = {
         row: 2,
         column: 7,
         numRows: 1,
-        numColumns: 4
+        numColumns: 5
       },
       write: {
         row: 2,
@@ -95,13 +95,13 @@ const sheetsMeta = {
       name: 'custom definitions',
       read: {
         row: 2,
-        column: 18,
+        column: 19,
         numRows: 1,
         numColumns: 8
       },
       write: {
         row: 2,
-        column: 18,
+        column: 19,
         numRows: 1,
         numColumns: 6
       }
@@ -109,13 +109,13 @@ const sheetsMeta = {
       name: 'fields to set',
       read: {
         row: 2,
-        column: 12,
+        column: 13,
         numRows: 1,
         numColumns: 5
       },
       write: {
         row: 2,
-        column: 12,
+        column: 13,
         numRows: 1,
         numColumns: 4
       }
@@ -137,13 +137,13 @@ const sheetsMeta = {
       name: 'variables list - fields to set',
       read: {
         row: 2,
-        column: 15,
+        column: 16,
         numRows: 1,
         numColumns: 1
       },
       write: {
         row: 2,
-        column: 15,
+        column: 16,
         numRows: 1,
         numColumns: 1
       }
@@ -151,13 +151,13 @@ const sheetsMeta = {
       name: 'variables list - custom definitions',
       read: {
         row: 2,
-        column: 23,
+        column: 24,
         numRows: 1,
         numColumns: 1
       },
       write: {
         row: 2,
-        column: 23,
+        column: 24,
         numRows: 1,
         numColumns: 1
       }
@@ -351,6 +351,20 @@ const sheetsMeta = {
       },
       write: {
         row: 5,
+        column: 2,
+        numRows: 1,
+        numColumns: 1
+      }
+    }, {
+      name: 'release',
+      read: {
+        row: 6,
+        column: 2,
+        numRows: 1,
+        numColumns: 1
+      },
+      write: {
+        row: 6,
         column: 2,
         numRows: 1,
         numColumns: 1
