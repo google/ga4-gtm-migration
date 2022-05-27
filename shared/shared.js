@@ -25,7 +25,6 @@ const ui = SpreadsheetApp.getUi();
 const cache = CacheService.getScriptCache();
 const cacheTimeout = 300;
 const cachingEnabled = getDataFromSheet('settings', 'caching')[0][0];
-const version = '1.11';
 
 // Entity types as defined by the GTM API.
 const analyticsVersion = {

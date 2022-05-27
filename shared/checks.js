@@ -46,9 +46,13 @@ const messageText = {
     have a value set under the "Convert To" column.
   `,
   versionUpdate: `
-    There is a new version of this tool available at <a href='https://github.com/google/ga4-gtm-migration'>here</a>. 
-    Please use the latest version of the tool by using the files on Github or making a copy of this
-    <a href='https://docs.google.com/spreadsheets/d/1wpmw7kkHpHzPIDC-mJS3BkSqGqf46W7E5UYpYTFilEc/'>spreadsheet</a>.
+    There is a new version of this tool available. Please use the latest version of the tool by using the files 
+    on Github or making a copy of this spreadsheet:
+
+    https://docs.google.com/spreadsheets/d/1wpmw7kkHpHzPIDC-mJS3BkSqGqf46W7E5UYpYTFilEc/
+
+    Update Details:
+
   `,
   measurementConsent: `
     Can we measure your useage of the GA4 GTM Migration Tool to understand
@@ -146,17 +150,39 @@ function validConfigTag() {
  * If not, it prompts the user to create a new copy of the sheet
  * from Github.
  */
-function checkVersion() {
-  const githubCodeText =
-        UrlFetchApp
-        .fetch('https://raw.githubusercontent.com/google/ga4-gtm-migration/master/ga4GtmMigration.js')
-        .getContentText();
-  const versionRegex = new RegExp('version = \'' + version + '\'');
-  if (!versionRegex.test(githubCodeText) &&
-      !settingsSheet.getRange('B4').getValue()) {
-    const response = ui.alert(messageText.versionUpdate);
-    if (response == ui.Button.OK || response == ui.Button.CLOSE) {
-      settingsSheet.getRange('B4').setValue(true);
+function checkRelease() {
+  if (getDataFromSheet('settings', 'dismissed update')[0][0] == 'Not Set') {
+    const releases = JSON.parse(
+      UrlFetchApp.fetch(
+        'https://api.github.com/repos/google/ga4-gtm-migration/releases'
+      ).getContentText());
+    const sheetReleaseVersion = getDataFromSheet('settings', 'release')[0][0].split('v')[1].split('.');
+    for (let i = 0; i < releases.length; i++) {
+      const release = releases[i];
+      const version = release.tag_name.split('v')[1].split('.');
+      const title = 'Update Avilable';
+      const message = messageText.versionUpdate + release.body + `
+      
+      ` + release.html_url;
+      if (parseInt(sheetReleaseVersion[0]) < parseInt(version[0])) {
+        const response = ui.alert(title, message, ui.ButtonSet.OK);
+        if (response == ui.Button.OK || response == ui.Button.CLOSE) {
+          writeToSheet([['Dismissed']], 'settings', 'dismissed update');
+        }
+        break;
+      } else if (parseInt(sheetReleaseVersion[1]) < parseInt(version[1])) {
+        const response = ui.alert(title, message, ui.ButtonSet.OK);
+        if (response == ui.Button.OK || response == ui.Button.CLOSE) {
+          writeToSheet([['Dismissed']], 'settings', 'dismissed update');
+        }
+        break;
+      } else if (parseInt(sheetReleaseVersion[2]) < parseInt(version[2])) {
+        const response = ui.alert(title, message, ui.ButtonSet.OK);
+        if (response == ui.Button.OK || response == ui.Button.CLOSE) {
+          writeToSheet([['Dismissed']], 'settings', 'dismissed update');
+        }
+        break;
+      }
     }
   }
 }

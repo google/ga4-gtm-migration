@@ -18,7 +18,6 @@
  * Builds the menu.
  */
 function onOpen() {
-//  checkVersion();
   const workspaceSubMenu = ui
   .createMenu('GTM Workspace Selection')
   .addItem('List GTM Accounts', 'writeGtmAccountsToSheet')

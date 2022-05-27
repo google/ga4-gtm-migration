@@ -48,11 +48,14 @@ function writeCustomDefinitionsToEventSheet() {
 function writeCustomDefinitionsToSheet(sheetsMetaField, rangeName, type) {
   let customDefinitions = [];
 	let analyticsVariableId = null;
+  let tagRangeName = '';
 
   if (type == 'TRACK_PAGEVIEW') {
     analyticsVariableId = getAnalyticsSettingsVariableId('pageviewMigration');
+    tagRangeName = 'pageview tags';
   } else if (type == 'TRACK_EVENT') {
     analyticsVariableId = getAnalyticsSettingsVariableId('eventMigration');
+    tagRangeName = 'event tags';
   }
 	const analyticsVariable = getGTMResource('variables', analyticsVariableId);
 
@@ -61,7 +64,7 @@ function writeCustomDefinitionsToSheet(sheetsMetaField, rangeName, type) {
   const filteredUATags = filterUATags(
     listGTMResources('tags', getSelectedWorkspacePath()),
     analyticsVersion.ua, type, 'selectedTags', sheetsMetaField,
-    rangeName
+    tagRangeName
 	);
 
   filteredUATags.forEach(tag => {
