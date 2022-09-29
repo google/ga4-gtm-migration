@@ -119,3 +119,9 @@ Any change is recorded under the “Changelog” sheet. This will list links to 
 *    If a cell turns yellow, then that row has been marked for migration, but that cell still needs information entered or else the migration won’t work correctly.
 *   If a cell turns red, then a critical ID has been removed for a row that has been marked for migration and you should probably re-list the information.
 *   If a row turns gray, then the row has been marked as “Do Not Migrate” and can be left alone.
+
+
+
+## Feedback
+
+If you have feedback or notice bugs, please feel free to raise an issue in GitHub, post in the group, or submit a response to [this survey](https://docs.google.com/forms/d/e/1FAIpQLScHrZbNU2RZGMtcWTVVEsxe5ZzARFvjqFQziixNPUPCsNcUUQ/viewform). Please note that this is not an officially supported Google product, so support is not guaranteed.

@@ -114,12 +114,14 @@ function formatTagsToMigrate(sheetsMetaField, rangeName, tagType) {
 				});
 			}
 		} else if (sheetsMetaField == 'eventMigration' && tagIdIndex != -1) {
-			if (rows[tagIdIndex][5]) {
+			if (rows[tagIdIndex][7]) {
 				tagData.push({
           newSettings: {
             tagName: rows[tagIdIndex][2],
             eventName: rows[tagIdIndex][3],
-            configTag: rows[tagIdIndex][4]
+            enableEcomm: rows[tagIdIndex][4],
+            ecommObject: rows[tagIdIndex][5],
+            configTag: rows[tagIdIndex][6]
           },
           oldTag: {
             tag: tag,
