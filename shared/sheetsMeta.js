@@ -185,7 +185,7 @@ const sheetsMeta = {
         row: 2,
         column: 6,
         numRows: 1,
-        numColumns: 6
+        numColumns: 8
       },
       write: {
         row: 2,
@@ -197,13 +197,13 @@ const sheetsMeta = {
       name: 'event data',
       read: {
         row: 2,
-        column: 13,
+        column: 15,
         numRows: 1,
         numColumns: 7
       },
       write: {
         row: 2,
-        column: 13,
+        column: 15,
         numRows: 1,
         numColumns: 5
       }
@@ -211,13 +211,13 @@ const sheetsMeta = {
       name: 'custom definitions',
       read: {
         row: 2,
-        column: 21,
+        column: 23,
         numRows: 1,
         numColumns: 8
       },
       write: {
         row: 2,
-        column: 21,
+        column: 23,
         numRows: 1,
         numColumns: 6
       }
@@ -239,13 +239,13 @@ const sheetsMeta = {
       name: 'variables list - event data',
       read: {
         row: 2,
-        column: 17,
+        column: 19,
         numRows: 1,
         numColumns: 1
       },
       write: {
         row: 2,
-        column: 17,
+        column: 19,
         numRows: 1,
         numColumns: 1
       }
@@ -253,13 +253,13 @@ const sheetsMeta = {
       name: 'variables list - custom definitions',
       read: {
         row: 2,
-        column: 26,
+        column: 28,
         numRows: 1,
         numColumns: 1
       },
       write: {
         row: 2,
-        column: 26,
+        column: 28,
         numRows: 1,
         numColumns: 1
       }

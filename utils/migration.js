@@ -121,7 +121,7 @@ function migratePageviewTag(
 
 		// Set custom definitions from corresponding tag.
 		customDefinitionMappings.singleEventTags.forEach(entity => {
-			if (entity.entityId == tagData.oldtagData.oldTag.id) {
+			if (entity.entityId == tagData.oldTag.id) {
 				parameters = parameters.concat(entity.parameter);
 				userProperties = userProperties.concat(entity.user_property);
 			}
@@ -235,6 +235,32 @@ function migrateEventTag(tagData, customDefinitionMappings, eventDataMappings) {
 		type: 'list',
 		list: parameters
 	});
+  if (tagData.newSettings.enableEcomm) {
+    skeletonEventTag.parameter.push({
+      key: 'sendEcommerceData',
+      type: 'boolean',
+      value: tagData.newSettings.enableEcomm.toString()
+    });
+    if (tagData.newSettings.ecommObject.length > 0) {
+      if (tagData.newSettings.ecommObject == 'dataLayer') {
+        skeletonEventTag.parameter.push({
+          key: 'getEcommerceDataFrom',
+          type: 'template',
+          value: 'dataLayer'
+        });
+      } else {
+        skeletonEventTag.parameter.push({
+          key: 'ecommerceMacroData',
+          type: 'template',
+          value: tagData.newSettings.ecommObject
+        }, {
+          key: 'getEcommerceDataFrom',
+          type: 'template',
+          value: 'customObject'
+        });
+      }
+    }
+  }
 
 	const newEventTag = createGTMResource('tags', getSelectedWorkspacePath(), skeletonEventTag);
 
