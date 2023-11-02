@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 Google LLC
+ * Copyright 2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,8 +61,8 @@ const sheetsMeta = {
       }
     }]
   },
-  pageviewMigration: {
-    sheetName: 'Pageview Migration',
+  configurationVariable: {
+    sheetName: 'Create Configuration Variables',
     ranges: [{
       name: 'settings variable',
       read: {
@@ -78,100 +78,30 @@ const sheetsMeta = {
         numColumns: 3
       }
     }, {
-      name: 'pageview tags', 
+      name: 'parameters', 
       read: {
         row: 2,
-        column: 7,
+        column: 12,
         numRows: 1,
-        numColumns: 5
+        numColumns: 3
       },
       write: {
         row: 2,
         column: 7,
         numRows: 1,
-        numColumns: 2
-      }
-    }, {
-      name: 'custom definitions',
-      read: {
-        row: 2,
-        column: 19,
-        numRows: 1,
-        numColumns: 8
-      },
-      write: {
-        row: 2,
-        column: 19,
-        numRows: 1,
-        numColumns: 6
-      }
-    }, {
-      name: 'fields to set',
-      read: {
-        row: 2,
-        column: 13,
-        numRows: 1,
         numColumns: 5
-      },
-      write: {
-        row: 2,
-        column: 13,
-        numRows: 1,
-        numColumns: 4
-      }
-    }, {
-      name: 'variables list - ua settings variable',
-      read: {
-        row: 2,
-        column: 4,
-        numRows: 1,
-        numColumns: 1
-      },
-      write: {
-        row: 2,
-        column: 4,
-        numRows: 1,
-        numColumns: 1
-      }
-    }, {
-      name: 'variables list - fields to set',
-      read: {
-        row: 2,
-        column: 16,
-        numRows: 1,
-        numColumns: 1
-      },
-      write: {
-        row: 2,
-        column: 16,
-        numRows: 1,
-        numColumns: 1
-      }
-    }, {
-      name: 'variables list - custom definitions',
-      read: {
-        row: 2,
-        column: 24,
-        numRows: 1,
-        numColumns: 1
-      },
-      write: {
-        row: 2,
-        column: 24,
-        numRows: 1,
-        numColumns: 1
       }
     }]
   },
-  eventMigration: {
-    sheetName: 'Event Migration',
+  eventVariable: {
+    sheetName: 'Create Event Tag Variables',
     ranges: [{
       name: 'settings variable',
       read: {
         row: 2,
         column: 1,
         numRows: 1,
-        numColumns: 4
+        numColumns: 5
       },
       write: {
         row: 2,
@@ -180,140 +110,148 @@ const sheetsMeta = {
         numColumns: 3
       }
     }, {
-      name: 'event tags',
+      name: 'parameters',
       read: {
         row: 2,
-        column: 6,
+        column: 12,
+        numRows: 1,
+        numColumns: 4
+      },
+      write: {
+        row: 2,
+        column: 7,
+        numRows: 1,
+        numColumns: 5
+      }
+    }]
+  },
+  googleTag: {
+    sheetName: 'Create Google Tag',
+    ranges: [{
+      name: 'tag settings',
+      read: {
+        row: 2,
+        column: 1,
         numRows: 1,
         numColumns: 8
       },
       write: {
         row: 2,
-        column: 6,
-        numRows: 1,
-        numColumns: 2
-      }
-    }, {
-      name: 'event data',
-      read: {
-        row: 2,
-        column: 15,
+        column: 1,
         numRows: 1,
         numColumns: 7
-      },
-      write: {
+      }
+    }, {
+      name: 'parameters',
+      read: {
         row: 2,
         column: 15,
         numRows: 1,
         numColumns: 5
-      }
-    }, {
-      name: 'custom definitions',
-      read: {
-        row: 2,
-        column: 23,
-        numRows: 1,
-        numColumns: 8
       },
       write: {
         row: 2,
-        column: 23,
+        column: 10,
+        numRows: 1,
+        numColumns: 5
+      }
+    }]
+  },
+  eventTag: {
+    sheetName: 'Create GA4 Event Tags',
+    ranges: [{
+      name: 'tags',
+      read: {
+        row: 2,
+        column: 1,
+        numRows: 1,
+        numColumns: 10
+      },
+      write: {
+        row: 2,
+        column: 1,
+        numRows: 1,
+        numColumns: 3
+      }
+    }, {
+      name: 'parameters',
+      read: {
+        row: 2,
+        column: 12,
+        numRows: 1,
+        numColumns: 10
+      },
+      write: {
+        row: 2,
+        column: 12,
         numRows: 1,
         numColumns: 6
-      }
-    }, {
-      name: 'variables list - event name',
-      read: {
-        row: 2,
-        column: 9,
-        numRows: 1,
-        numColumns: 1
-      },
-      write: {
-        row: 2,
-        column: 9,
-        numRows: 1,
-        numColumns: 1
-      }
-    }, {
-      name: 'variables list - event data',
-      read: {
-        row: 2,
-        column: 19,
-        numRows: 1,
-        numColumns: 1
-      },
-      write: {
-        row: 2,
-        column: 19,
-        numRows: 1,
-        numColumns: 1
-      }
-    }, {
-      name: 'variables list - custom definitions',
-      read: {
-        row: 2,
-        column: 28,
-        numRows: 1,
-        numColumns: 1
-      },
-      write: {
-        row: 2,
-        column: 28,
-        numRows: 1,
-        numColumns: 1
       }
     }]
   },
   validation: {
     sheetName: 'Validation Settings',
     ranges: [{
-      name: 'config tags',
-      read: {
-        row: 2,
-        column: 5,
-        numRows: 1,
-        numColumns: 2
-      },
-      write: {
-        row: 2,
-        column: 5,
-        numRows: 1,
-        numColumns: 2
-      }
-    }, {
       name: 'gtm variables',
       read: {
         row: 2,
-        column: 7,
+        column: 3,
         numRows: 1,
         numColumns: 1
       },
       write: {
         row: 2,
-        column: 7,
+        column: 3,
         numRows: 1,
         numColumns: 1
+      }
+    }, {
+      name: 'configuration variables',
+      read: {
+        row: 2,
+        column: 5,
+        numRows: 1,
+        numColumns: 1
+      },
+      write: {
+        row: 2,
+        column: 5,
+        numRows: 1,
+        numColumns: 1
+      }
+    }, {
+      name: 'event variables',
+      read: {
+        row: 2,
+        column: 6,
+        numRows: 1,
+        numColumns: 1
+      },
+      write: {
+        row: 2,
+        column: 6,
+        numRows: 1,
+        numColumns: 1
+      }
+    }, {
+      name: 'triggers',
+      read: {
+        row: 2,
+        column: 7,
+        numRows: 1,
+        numColumns: 2
+      },
+      write: {
+        row: 2,
+        column: 7,
+        numRows: 1,
+        numColumns: 2
       }
     }]
   },
   settings: {
     sheetName: 'Settings',
     ranges: [{
-      name: 'consent',
-      read: {
-        row: 2,
-        column: 2,
-        numRows: 1,
-        numColumns: 1
-      },
-      write: {
-        row: 2,
-        column: 2,
-        numRows: 1,
-        numColumns: 1
-      }
-    }, {
       name: 'request delay',
       read: {
         row: 3,
@@ -323,20 +261,6 @@ const sheetsMeta = {
       },
       write: {
         row: 3,
-        column: 2,
-        numRows: 1,
-        numColumns: 1
-      }
-    }, {
-      name: 'dismissed update',
-      read: {
-        row: 4,
-        column: 2,
-        numRows: 1,
-        numColumns: 1
-      },
-      write: {
-        row: 4,
         column: 2,
         numRows: 1,
         numColumns: 1
@@ -368,42 +292,6 @@ const sheetsMeta = {
         column: 2,
         numRows: 1,
         numColumns: 1
-      }
-    }]
-  },
-  ga4CustomDimensions: {
-    sheetName: 'GA4 Custom Dimensions',
-    ranges: [{
-      name: 'values',
-      read: {
-        row: 2,
-        column: 1,
-        numRows: 1,
-        numColumns: 13
-      },
-      write: {
-        row: 2,
-        column: 7,
-        numRows: 1,
-        numColumns: 2 
-      }
-    }]
-  },
-  ga4CustomMetrics: {
-    sheetName: 'GA4 Custom Metrics',
-    ranges: [{
-      name: 'values',
-      read: {
-        row: 2,
-        column: 1,
-        numRows: 1,
-        numColumns: 13
-      },
-      write: {
-        row: 2,
-        column: 7,
-        numRows: 1,
-        numColumns: 2 
       }
     }]
   }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 Google LLC
+ * Copyright 2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,32 +14,31 @@
  * limitations under the License.
  */
 
-// Functions related to the 'fields to set' section of tags.
+/**
+ * Attempts to convert camel case field names to snake case.
+ * @param {!Array<?Object>} fields A list of all fields.
+ * @return {!Array<?Array<string>>} A list of all fields.
+ */
+function convertToSnakeCase(fields) {
+  fields.forEach(field => {
+    if (/{{/.test(field[2]) == false) {
+			const convertedName = field[2].replace( /([A-Z])/g, " $1" );
+			field[2] = convertedName.split(' ').join('_').toLowerCase();
+    }
+  });
+  return fields;
+}
 
 /**
- * Writes the fields in the selected UA variable and all UA pageview tags to the
- * pageview migration sheet.
+ * Lists the values for the "Fields to set" settings for a given Universal 
+ * Analytics tag or settings variable.
+ * @param {!Object} Either a Universal Analytics tag or variable object.
+ * @return {!Array} An array of the field to set settings.
  */
-function writeFieldsToSetToPageviewSheet() {
-  const sheetsMetaField = 'pageviewMigration';
-  if (validSettingsVariable(sheetsMetaField) && validMeasurementId()) {
-    let fields = [];
-
-    const analyticSettingsVariableId = getAnalyticsSettingsVariableId(sheetsMetaField);
-    const analyticsSettingsVariable = getGTMResource('variables', analyticSettingsVariableId);
-    fields = fields.concat(formatFieldsToSet(analyticsSettingsVariable));
-
-    const pageviewTags = filterUATags(
-      listGTMResources('tags', getSelectedWorkspacePath()),
-      analyticsVersion.ua, uaTagType.pageview,
-      'selectedTags', sheetsMetaField, 'fields to set'
-    );
-
-    pageviewTags.forEach(tag => fields = fields.concat(formatFieldsToSet(tag)));
-
-    const snakeCaseFieldNames = convertToSnakeCase(fields);
-    writeToSheet(snakeCaseFieldNames, sheetsMetaField, 'fields to set');
-  }
+function listFieldsToSet(entity) {
+  const fields = formatFieldsToSet(entity);
+  const snakeCaseFieldNames = convertToSnakeCase(fields);
+  return snakeCaseFieldNames;
 }
 
 /**
@@ -57,11 +56,12 @@ function formatFieldsToSet(entity) {
           let tempArray = [];
           field.map.forEach(map => {
             if (map.key == 'fieldName') {
-							tempArray[0] = entity.name;
-              tempArray[1] = entity.variableId || entity.tagId;
-              tempArray[2] = map.value;
-            } else if (map.key == 'value') {
+              tempArray[0] = entity.name;
+              tempArray[1] = entity.tagId || entity.variableId;
+              tempArray[2] = 'fields to set';
               tempArray[3] = map.value;
+            } else if (map.key == 'value') {
+              tempArray[4] = map.value;
             }
           });
           fieldsToSet.push(tempArray);
@@ -70,55 +70,4 @@ function formatFieldsToSet(entity) {
     });
   }
   return fieldsToSet;
-}
-
-/**
- * Retrieves fields from the sheet and converts them into
- * mappings that can be added to a tag or variable.
- * @param {string} sheetsMetaField
- * @return {!Object} Returns an object that contains the mappings to be applied
- * to the tags or variables.
- */
-function getFieldsToSetMappings(sheetsMetaField) {
-  const values = getDataFromSheet(sheetsMetaField, 'fields to set')
-
-  const mappings = {
-		fields: {
-			configTag: [],
-			allEventTags: [],
-			singleEventTags: []
-		}
-	};
-
-  if (values.length > 0) {
-    let filteredRows = removeEmptyRows(values);
-		const entityIds = [];
-
-    filteredRows.forEach(row => {
-			const entityId = row[1];
-			const fieldName = row[2];
-			const fieldValue = row[3];
-			const migrateToOption = row[4];
-
-			if (migrateToOption == migrateTo.config) {
-				mappings.fields.configTag.push(buildMapObject(fieldName, fieldValue));
-			} else if (migrateToOption == migrateTo.allEvents) {
-				mappings.fields.allEventTags
-					.push(buildMapObject(fieldName, fieldValue));
-			} else if (migrateToOption == migrateTo.singleEvent) {
-				if (entityIds.indexOf(entityId) != -1) {
-					mappings.fields.singleEventTags[entityIds.indexOf(entityId)]
-					.mappings.push(buildMapObject(fieldName, fieldValue));
-				} else {
-					entityIds.push(entityId);
-					mappings.fields.singleEventTags
-					.push({
-						entityId: entityId,
-						mappings: [buildMapObject(fieldName, fieldValue)]
-					});
-				}
-			}
-    });
-  }
-	return mappings;
 }

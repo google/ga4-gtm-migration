@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 Google LLC
+ * Copyright 2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,8 @@ const gtmAPIResources = {
   builtInVariables: TagManager.Accounts.Containers.Workspaces.Built_in_variables
 };
 
-const gtmRequestDelay = parseInt(getDataFromSheet('settings', 'request delay')[0][0]) || 4000;
+const gtmRequestDelay = parseInt(
+  getDataFromSheet('settings', 'request delay')[0][0]) || 4000;
 
 function gtmResources() {
   const resources = {}
@@ -57,7 +58,8 @@ function listGTMResourcesRequest(resourceKey, parent) {
       } else {
         nextPage = gtmAPIResources[resourceKey].list(options);
       }
-      response[resourceKey] = response[resourceKey].concat(nextPage[resourceKey.slice(0, resourceKey.length - 1)]);
+      response[resourceKey] = response[resourceKey].concat(
+        nextPage[resourceKey.slice(0, resourceKey.length - 1)]);
       options.pageToken = nextPage.nextPageToken;
       Utilities.sleep(gtmRequestDelay);
     }
@@ -78,12 +80,14 @@ function listGTMResources(resourceKey, parent) {
     if (cached != null) {
       return JSON.parse(cached);
     } else {
-      const data = listGTMResourcesRequest(resourceKey, parent)[resourceKey.slice(0, resourceKey.length - 1)];
+      const data = listGTMResourcesRequest(
+        resourceKey, parent)[resourceKey.slice(0, resourceKey.length - 1)];
       saveInBatches(resourceKey, data, 'cache');
       return data;
     }
   } else {
-    return listGTMResourcesRequest(resourceKey, parent)[resourceKey.slice(0, resourceKey.length - 1)];
+    return listGTMResourcesRequest(resourceKey, parent)[resourceKey.slice(
+      0, resourceKey.length - 1)];
   }
 }
 
@@ -95,7 +99,8 @@ function listGTMResources(resourceKey, parent) {
  */
 function getGTMResource(resourceKey, id) {
   console.log(getSelectedWorkspacePath() + '/' + resourceKey + '/' + id);
-  return gtmAPIResources[resourceKey].get(getSelectedWorkspacePath() + '/' + resourceKey + '/' + id);
+  return gtmAPIResources[resourceKey].get(
+    getSelectedWorkspacePath() + '/' + resourceKey + '/' + id);
 }
 
 /**

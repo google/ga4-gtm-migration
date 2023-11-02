@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 Google LLC
+ * Copyright 2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,10 +68,9 @@ function getSelectedWorkspacePath() {
   const workspaces = getDataFromSheet('gtmWorkspace', 'workspaces list');
   const selectedWorkspace = workspaces.filter(workspace => workspace[2]);
   if (selectedWorkspace.length == 0) {
-    ui.alert(messageText.missingGTMWorkspace);
+    ui.alert(errorText.missingGTMWorkspace);
     return '';
   } else {
    return selectedWorkspace[0][1];
   }
-  return workspaces.filter(workspace => workspace[2])[0][1];
 }

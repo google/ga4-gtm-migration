@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 Google LLC
+ * Copyright 2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,42 +17,15 @@
 /**
  * Writes GTM variables to the validation sheet.
  */
-function writeGTMVariablesToValidationSheet() {
+function writeAllGTMVariablesToValidationSheet() {
   const variables = listGTMResources('variables', getSelectedWorkspacePath());
   let formattedVariables = formatGTMVariablesToNamesArray(variables);
-  const builtInVariables = listGTMResources('builtInVariables', getSelectedWorkspacePath());
-  formattedVariables = formattedVariables.concat(formatGTMVariablesToNamesArray(builtInVariables));
+  const builtInVariables = listGTMResources(
+    'builtInVariables', getSelectedWorkspacePath());
+  formattedVariables = formattedVariables.concat(
+    formatGTMVariablesToNamesArray(builtInVariables));
   clearRangeContent('validation', 'gtm variables');
   writeToSheet(formattedVariables, 'validation', 'gtm variables');
-  let range = {};
-  sheetsMeta.validation.ranges.forEach(r => {
-    if (r.name == 'gtm variables') {
-      range = r.read;
-    }
-  });
-  const validationSheet = ss.getSheetByName(sheetsMeta.validation.sheetName);
-  const ruleRange = validationSheet.getRange(range.row, range.column, validationSheet.getLastRow(), range.numColumns);
-  const rule = SpreadsheetApp.newDataValidation().requireValueInRange(ruleRange, true).build();
-  setGTMVariablesValidation('pageviewMigration', rule);
-  setGTMVariablesValidation('eventMigration', rule);
-}
-
-/**
- * Sets the validations rules for the GTM variables dropdown to various
- * ranges in the Pageview Migration and Event Migration sheets.
- * @param {string} sheetsMetaField The field name to be referenced in the sheetsMeta object.
- * @param {!Object} rule The validation rule to be applied to a range.
- */
-function setGTMVariablesValidation(sheetsMetaField, rule) {
-  const sheet = ss.getSheetByName(sheetsMeta[sheetsMetaField].sheetName);
-  let range = {};
-  sheetsMeta[sheetsMetaField].ranges.forEach(r => {
-    if (/variables list/.test(r.name)) {
-      range = r.write;
-      const sheetRange = sheet.getRange(range.row, range.column, sheet.getLastRow(), range.numColumns);
-      sheetRange.setDataValidation(rule);
-    }
-  });
 }
 
 /**
@@ -67,4 +40,85 @@ function formatGTMVariablesToNamesArray(variables) {
     arr.push(['{{' + variable.name + '}}']);
     return arr;
   }, []);
+}
+
+/**
+ * Writes the configuration settings variables that exist in the GTM
+ * workspace to the validation sheet.
+ */
+function writeConfigurationSettingsVariablesToValidationSheet() {
+  const variables = listGTMResources('variables', getSelectedWorkspacePath());
+  const configurationVariables = variables.filter(
+    variable => variable.type == 'gtcs');
+  const formattedVariables = formatGTMVariablesToNamesArray(
+    configurationVariables);
+  clearRangeContent('validation', 'configuration variables');
+  writeToSheet(formattedVariables, 'validation', 'configuration variables');
+}
+
+/**
+ * Wites the event settings variables that existing in the GTM workspace to
+ * the validation sheet.
+ */
+function writeEventSettingsVariablesToValidationSheet() {
+  const variables = listGTMResources('variables', getSelectedWorkspacePath());
+  const eventVariables = variables.filter(
+    variable => variable.type == 'gtes');
+  const formattedVariables = formatGTMVariablesToNamesArray(
+    eventVariables);
+  clearRangeContent('validation', 'event variables');
+  writeToSheet(formattedVariables, 'validation', 'event variables');
+}
+
+/**
+ * Finds all the UA settings variables in a container and writes them to a
+ * specified range and sheet.
+ * @param {string} sheetName
+ */
+function writeAnalyticsSettingsVariableToSheet(sheetName) {
+  const variables = listGTMResources('variables', getSelectedWorkspacePath());
+  let analyticsVariables = [];
+  variables.forEach(variable => {
+    if (variable.type == 'gas') {
+      const name = variable.name;
+      let trackingId = '';
+      variable.parameter.forEach(param => {
+        if (param.key == 'trackingId') {
+          trackingId = param.value;
+        }
+      });
+      const variableId = variable.variableId;
+      analyticsVariables.push([name, trackingId, variableId]);
+    }
+  });
+  if (variables.length > 0) {
+    writeToSheet(analyticsVariables, sheetName, 'settings variable');
+  } else {
+    ui.alert('There are no UA settings variables for this workspace.')
+  }
+}
+
+/**
+ * Gets the UA settings variable data object from the sheet.
+ * @param {string} sheetsMetaField
+ * @return {!Object}
+ */
+function getAnalyticsSettingsVariableData(sheetsMetaField) {
+  const rows = getDataFromSheet(sheetsMetaField, 'settings variable');
+  const selectedRow = rows.filter(row => row[row.length - 1]);
+  try {
+    return {
+      originalName: selectedRow[0][0],
+      trackingId: selectedRow[0][1],
+      variableId: selectedRow[0][2],
+      newName: selectedRow[0][3],
+      selected: selectedRow[0][4] 
+    };
+  } catch(e) {
+    Logger.log(e);
+    ui.alert(errorText.missingUASettingsVariable);
+    return;
+  }
+  
+   
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 Google LLC
+ * Copyright 2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,42 +19,47 @@
  */
 function onOpen() {
   const workspaceSubMenu = ui
-  .createMenu('GTM Workspace Selection')
-  .addItem('List GTM Accounts', 'writeGtmAccountsToSheet')
-  .addItem('List GTM Containers', 'writeSelectedGtmContainersToSheet')
-  .addItem('List GTM Workspaces', 'writeSelectedGtmWorkspacesToSheet')
+    .createMenu('GTM Workspace Selection')
+    .addItem('List GTM Accounts', 'writeGtmAccountsToSheet')
+    .addItem('List GTM Containers', 'writeSelectedGtmContainersToSheet')
+    .addItem('List GTM Workspaces', 'writeSelectedGtmWorkspacesToSheet')
 
-  const analyticsPageviewSubMenu = ui
-  .createMenu('Pageview Migration')
-  .addItem('List UA Settings Variables', 'writeAnalyticsSettingsVariablesToPageviewSheet')
-  .addItem('List UA Pageview Tags', 'writeUAPageviewTagsToSheet')
-  .addItem('List UA Fields', 'writeFieldsToSetToPageviewSheet')
-  .addItem('List Custom Definitions', 'writeCustomDefinitionsToPageviewSheet')
-  .addSeparator()
-  .addItem('Migrate Config Tag', 'migrateConfigTag')
-  .addItem('Migrate Pageview Event Tags', 'migratePageviewEventTags');
+  const configurationVariableSubMenu = ui
+    .createMenu('Configuration Variable')
+    .addItem(
+      'List UA Settings Variables', 
+      'writeAnalyticsSettingsVariablesToConfigurationVariableSheet')
+    .addItem('List Settings to Migrate', 'writeConfigurationSettingsToSheet')
+    .addSeparator()
+    .addItem('Create Configuration Variable', 'createConfigurationVariable');
 
-  const analyticsEventSubMenu = ui
-	.createMenu('Event Migration')
-  .addItem('List UA Settings Variables', 'writeAnalyticsSettingsVariablesToEventSheet')
-	.addItem('List UA Events', 'writeEventAndConfigTagsToSheet')
-  .addItem('List UA Event Data', 'writeUAEventDataToSheet')
-	.addItem('List Custom Definitions', 'writeCustomDefinitionsToEventSheet')
-	.addSeparator()
-	.addItem('Migrate Event Tags', 'migrateEventTags');
+  const eventSettingsVariableSubMenu = ui
+    .createMenu('Event Setting Variable')
+    .addItem(
+      'List UA Settings Variables', 
+      'writeAnalyticsSettingsVariablesToEventVariableSheet')
+    .addItem('List Settings to Migrate', 'writeSettingsToEventTagSheet')
+    .addSeparator()
+    .addItem('Create Event Settings Variable', 'createEventVariable');
+  
+  const googleTagSubMenu = ui
+    .createMenu('Google Tag')
+    .addItem('List Settings to Migrate', 'writeSettingsToGoogleTagSheet')
+    .addSeparator()
+    .addItem('Create Google Tag', 'createGoogleTag');
 
-  const listVariables = ui
-  .createMenu('(Optional) GTM Variables')
-  .addItem('Add GTM Variable Dropdown List', 'writeGTMVariablesToValidationSheet');
+  const eventTagSubMenu = ui
+    .createMenu('Event Tags')
+    .addItem('List Tags to Migrate', 'writeUATagsToEventSheet')
+    .addItem('List Settings to Migrate', 'writeUASettingsToEventSheet')
+    .addSeparator()
+    .addItem('Create Event Tags', 'migrateUATags');
 
-  ui
-  .createMenu('GTM Migration')
-  .addSubMenu(workspaceSubMenu)
-  .addSubMenu(analyticsPageviewSubMenu)
-	.addSubMenu(analyticsEventSubMenu)
-	.addSeparator()
-  .addSubMenu(listVariables)
-  .addSeparator()
-	.addItem('Authorize Permissions', 'authorization')
-  .addToUi();
+  ui.createMenu('GTM Migration')
+    .addSubMenu(workspaceSubMenu)
+    .addSubMenu(configurationVariableSubMenu)
+    .addSubMenu(eventSettingsVariableSubMenu)
+    .addSubMenu(googleTagSubMenu)
+    .addSubMenu(eventTagSubMenu)
+    .addToUi();
 }
